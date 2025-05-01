@@ -4,6 +4,9 @@
 #include <Windows.h>
 #include <fcntl.h>
 #include <io.h>
+#include <omp.h>
+
+#define _O_U16TEXT          0x20000
 
 #define SAMPLING_RATE       2048
 #define SAMPLING_INTERVAL   103
@@ -17,6 +20,8 @@ BYTE buf[NUM_BUFFERS][SAMPLING_INTERVAL];
 BYTE sound_data[SAMPLING_RATE];     // サンプリング周波数まで0埋めして 分解能1Hz を保つ
 double pitchArray[ARRAY_RANGE];
 int reverseTable[SAMPLING_RATE];
+double cosTable[SAMPLING_RATE] = {0}, sinTable[SAMPLING_RATE] = {0};
+double FreqToPitchTable[SAMPLING_RATE] = {0};
 
 FILE *gp, *gp2;
 
@@ -30,6 +35,13 @@ typedef struct cmplx {
 void setComplex(cmplx *c, double re, double im) {
     c->real = re;
     c->imag = im;
+}
+
+cmplx cmul(cmplx a, cmplx b) {
+    cmplx r;
+    r.real = a.real * b.real - a.imag * b.imag;
+    r.imag = a.real * b.imag + a.imag * b.real;
+    return r;
 }
 
 void bitReverse(int *indexs, int n) {
@@ -48,6 +60,21 @@ void bitReverse(int *indexs, int n) {
     }
 }
 
+void makeAngleTable(int size, double *cosTable, double *sinTable) {
+    // (2nπ/N k) のcos, sinを生成
+    for (size_t i = 0; i < size; i++) {
+        cosTable[i] = cos(2 * M_PI / size * i);
+        sinTable[i] = sin(2 * M_PI / size * i);
+    }    
+}
+
+void makePitchTable(int size, double *pitchTable) {
+    for (size_t i = 0; i < size; i++) {
+        pitchTable[i] = (log2(i) - log2(27.5)) * 12 + 10;
+        while (pitchTable[i] > 12) pitchTable[i] -= 12;
+    }
+}
+
 void gnuplotSet() {
     gp = _popen(GNUPLOT, "w");
     gp2 = _popen(GNUPLOT, "w");
@@ -55,6 +82,7 @@ void gnuplotSet() {
     fprintf(gp, "set xrange [0:%d]\n", SAMPLING_INTERVAL);
     fprintf(gp, "set yrange [0:255]\n");
 
+    fprintf(gp2, "set datafile missing '?'\n");
     fprintf(gp2, "unset xtics\n");
     fprintf(gp2, "set grid\n");
     fprintf(gp2, "set yrange [0:12]\n");
@@ -69,12 +97,14 @@ void gnuplotSet() {
 
 void CALLBACK waveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2) {
     switch (uMsg) {
-        case WIM_OPEN:
+        case WIM_OPEN: {
             wprintf(L"opened\n");
             break;
-        case WIM_DATA:   // バッファが満杯になったとき
+        }
+        case WIM_DATA: {  // バッファが満杯になったとき
             int data = 127;
-            double max = 0, value = 0, maxFreq = 0, pitch = 0;
+            double max = 0, value = 0, pitch = 0;
+            int maxFreq = 0;
             cmplx f[SAMPLING_RATE] = {0}, F[SAMPLING_RATE] = {0};
 
             // sound_data に入力信号をコピー
@@ -101,22 +131,21 @@ void CALLBACK waveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR
             int size = 2;
             while (size <= SAMPLING_RATE)
             {
-                double angle = 2 * M_PI / size;
-                for (int start = 0; start < SAMPLING_RATE; start += size)
-                {
-                    for (size_t i = 0; i < size/2; i++) {
-                        cmplx tmp1 = F[start + i];
-                        cmplx tmp2 = {0,0};
+                int half = size/2;
+                int step = SAMPLING_RATE / size;
+                #pragma omp parallel for
+                for (int start = 0; start < SAMPLING_RATE; start += size) {
+                    for (int i = 0; i < half; i++) {
+                        int k = i * step;
 
-                        tmp2.real = cos(angle * i) * F[start + size/2 + i].real + sin(angle * i) * F[start + size/2 + i].imag;
-                        tmp2.imag = cos(angle * i) * F[start + size/2 + i].imag - sin(angle * i) * F[start + size/2 + i].real;
-
-                        F[start + i].real = tmp1.real + tmp2.real;
-                        F[start + i].imag = tmp1.imag + tmp2.imag;
-                        F[start + size/2 + i].real = tmp1.real - tmp2.real;
-                        F[start + size/2 + i].imag = tmp1.imag - tmp2.imag;
+                        cmplx u = f[start + i];
+                        cmplx twiddle = { cosTable[k], -sinTable[k] };
+                        cmplx v = cmul(twiddle, f[start + size/2 + i]);
+            
+                        f[start + i] = (cmplx){u.real + v.real, u.real + v.real};
+                        f[start + half + i] = (cmplx){u.real - v.real, u.real - v.real};
+                        }
                     }
-                }
                 size *= 2;
             }
 
@@ -130,34 +159,33 @@ void CALLBACK waveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR
             }
 
             // maxFreq を音階のどこに位置するか pitch に変換
-            pitch = (log2(maxFreq) - log2(27.5)) * 12 + 10;
-            while (pitch > 12)  pitch -= 12;
+            pitch = FreqToPitchTable[maxFreq];
             
             // pitchArray に pitch を格納
             pitchArray[cnt % ARRAY_RANGE] = (max > 1000) ? pitch : -1;
 
-            // 最大周波数の推移を gp2 に描画
+            // 最大周波数の推移を gp2 に描画。音が無かったら描画しない (NaN)
             fprintf(gp2, "plot '-' with lines title 'Pitch'\n");
             for (int i = 0; i < ARRAY_RANGE; i++) {
-                fprintf(gp2, "%d %lf\n", i, pitchArray[(cnt + i) % ARRAY_RANGE]);
+                double val = pitchArray[(cnt + i) % ARRAY_RANGE];
+                if (val > 0) fprintf(gp2, "%d %lf\n", i, val);
+                else         fprintf(gp2, "%d NaN\n", i);
             }
             fprintf(gp2, "e\n");
             fflush(gp2);
             cnt++;
             break;
-        case WIM_CLOSE:  // waveInがCloseになったとき
+        }
+        case WIM_CLOSE: { // waveInがCloseになったとき
             wprintf(L"closed\n");
             break;
+        }
     }
 }
 
 int main(void) {
     // デバイス名に日本語を扱うので stdoutをワイド文字モードに設定
     _setmode(_fileno(stdout), _O_U16TEXT);
-
-    // gnuplot
-    gnuplotSet();
-    Sleep(1000 * 5);    // gnuplotウィンドウの表示待機
 
     UINT deviceID = 0;
     HWAVEIN hWaveIn;
@@ -170,10 +198,6 @@ int main(void) {
     wfx.nBlockAlign = 1;                    // ブロック長[Byte]。多分1サンプルの長さ(wBitsPerSample / 8)
     wfx.cbSize = 0;                         // 拡張フォーマット情報の長さ[Byte]
 
-    memset(sound_data, 127, SAMPLING_RATE);
-    memset(pitchArray, 0, ARRAY_RANGE);
-    bitReverse(reverseTable, SAMPLING_RATE);
-
     for (int i = 0; i < NUM_BUFFERS; i++) {
         whdr[i].lpData = (char *)buf[i];              // サンプル保存先
         whdr[i].dwBufferLength = SAMPLING_INTERVAL;   // 保存先の長さ[Byte]
@@ -182,6 +206,16 @@ int main(void) {
         whdr[i].dwLoops = 0;                          // ループカウント
         memset(buf[i], 0, SAMPLING_INTERVAL);
     }
+
+    memset(sound_data, 127, SAMPLING_RATE);
+    memset(pitchArray, 0, ARRAY_RANGE);
+    bitReverse(reverseTable, SAMPLING_RATE);
+    makeAngleTable(SAMPLING_RATE, cosTable, sinTable);
+    makePitchTable(SAMPLING_RATE, FreqToPitchTable);
+
+    // gnuplot
+    gnuplotSet();
+    Sleep(1000 * 5);    // gnuplotウィンドウの表示待機
 
     UINT numDevs = waveInGetNumDevs();
     for (int i = 0; i < numDevs; i++) {

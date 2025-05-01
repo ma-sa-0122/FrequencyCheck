@@ -17,6 +17,7 @@ BYTE buf[NUM_BUFFERS][SAMPLING_INTERVAL];
 BYTE sound_data[SAMPLING_RATE];     // サンプリング周波数まで0埋めして 分解能1Hz を保つ
 double maxFreqArray[ARRAY_RANGE];
 int reverseTable[SAMPLING_RATE];
+double cosTable[SAMPLING_RATE] = {0}, sinTable[SAMPLING_RATE] = {0};
 
 FILE *gp, *gp2;
 
@@ -46,6 +47,14 @@ void bitReverse(int *indexs, int n) {
             indexs[size/2 + i] = indexs[i] + (n / size);
         }
     }
+}
+
+void makeAngleTable(int size, double *cosTable, double *sinTable) {
+    // (2nπ/N k) のcos, sinを生成
+    for (size_t i = 0; i < size; i++) {
+        cosTable[i] = cos(2 * M_PI / size * i);
+        sinTable[i] = sin(2 * M_PI / size * i);
+    }    
 }
 
 void gnuplotSet() {
@@ -79,8 +88,9 @@ void CALLBACK waveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR
             break;
         case WIM_DATA:   // バッファが満杯になったとき
             int data = 127;
-            double max = 0, value = 0, maxFreq = 0;
-            cmplx f[SAMPLING_RATE] = {0}, F[SAMPLING_RATE] = {0};
+            double max = 0, value = 0;
+            int maxFreq = 0;
+            cmplx f[SAMPLING_RATE] = {0};
             double spectrum[SAMPLING_RATE/2] = {0}, result[SAMPLING_RATE/2] = {0};
 
             // sound_data に入力信号をコピー
@@ -102,39 +112,55 @@ void CALLBACK waveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR
             fflush(gp);
             
             // 入力をビットリバース順に
-            for (size_t i = 0; i < SAMPLING_RATE; i++) F[i] = f[reverseTable[i]];
+            for (size_t i = 0; i < SAMPLING_RATE; i++) {
+                if (i < reverseTable[i]) {
+                    cmplx tmp = f[i];
+                    f[i] = f[reverseTable[i]];
+                    f[reverseTable[i]] = tmp;
+                }
+            }
+
             // FFT
             int size = 2;
             while (size <= SAMPLING_RATE)
             {
-                double angle = 2 * M_PI / size;
-                for (int start = 0; start < SAMPLING_RATE; start += size)
-                {
-                    for (size_t i = 0; i < size/2; i++) {
-                        cmplx tmp1 = F[start + i];
-                        cmplx tmp2 = {0,0};
-
-                        tmp2.real = cos(angle * i) * F[start + size/2 + i].real + sin(angle * i) * F[start + size/2 + i].imag;
-                        tmp2.imag = cos(angle * i) * F[start + size/2 + i].imag - sin(angle * i) * F[start + size/2 + i].real;
-
-                        F[start + i].real = tmp1.real + tmp2.real;
-                        F[start + i].imag = tmp1.imag + tmp2.imag;
-                        F[start + size/2 + i].real = tmp1.real - tmp2.real;
-                        F[start + size/2 + i].imag = tmp1.imag - tmp2.imag;
+                int half = size/2;
+                int step = SAMPLING_RATE / size;
+                for (int start = 0; start < SAMPLING_RATE; start += size) {
+                    for (int i = 0; i < half; i++) {
+                        cmplx u = f[start + i];
+                        cmplx v;
+                        v.real = cosTable[step*i] * f[start+half+i].real + sinTable[step*i] * f[start+half+i].imag;
+                        v.imag = cosTable[step*i] * f[start+half+i].imag - sinTable[step*i] * f[start+half+i].real;
+            
+                        f[start + i] = (cmplx){u.real + v.real, u.real + v.real};
+                        f[start + half + i] = (cmplx){u.real - v.real, u.real - v.real};
+                        }
                     }
-                }
                 size *= 2;
             }
 
-            // 周波数スペクトルの最大値を調べて maxFreqArray に追加
-            for (int i = 1; i < SAMPLING_RATE/2; i++) {
-                value = F[i].real*F[i].real + F[i].imag*F[i].imag;
-                if (max < value) {
-                    max = value;
-                    maxFreq = i;
+            // 周波数スペクトルの最大値を調べて maxFreq として保存。
+            int MIN_FREQ = 80;
+            double maxPower = 0;
+            for (int i = MIN_FREQ; i < SAMPLING_RATE/2; i++) {
+                double power = f[i].real*f[i].real + f[i].imag*f[i].imag;
+                if (power > maxPower) {
+                    // 周波数が一定以下なら無条件採用
+                    if (i < 450) {
+                        maxPower = power;
+                        maxFreq = i;
+                    }
+                    // それより高い周波数なら、重みづけで採用されづらくする
+                    else if (power > maxPower * 1.2) {
+                        maxPower = power;
+                        maxFreq = i;
+                    }
                 }
             }
-            maxFreqArray[cnt % ARRAY_RANGE] = (max > 1000) ? maxFreq : 0;
+
+            // 周波数を maxFreqArray に追加
+            maxFreqArray[cnt % ARRAY_RANGE] = (maxPower > 1000) ? maxFreq : 0;
             /* wprintf(L"%ld\n", (int)maxFreq); */
 
             // 最大周波数の推移を gp2 に描画
@@ -156,10 +182,6 @@ int main(void) {
     // デバイス名に日本語を扱うので stdoutをワイド文字モードに設定
     _setmode(_fileno(stdout), _O_U16TEXT);
 
-    // gnuplot
-    gnuplotSet();
-    Sleep(1000 * 5);    // gnuplotウィンドウの表示待機
-
     UINT deviceID = 0;
     HWAVEIN hWaveIn;
 
@@ -171,10 +193,6 @@ int main(void) {
     wfx.nBlockAlign = 1;                    // ブロック長[Byte]。多分1サンプルの長さ(wBitsPerSample / 8)
     wfx.cbSize = 0;                         // 拡張フォーマット情報の長さ[Byte]
 
-    memset(sound_data, 127, SAMPLING_RATE);
-    memset(maxFreqArray, 0, ARRAY_RANGE);
-    bitReverse(reverseTable, SAMPLING_RATE);
-
     for (int i = 0; i < NUM_BUFFERS; i++) {
         whdr[i].lpData = (char *)buf[i];              // サンプル保存先
         whdr[i].dwBufferLength = SAMPLING_INTERVAL;   // 保存先の長さ[Byte]
@@ -183,6 +201,15 @@ int main(void) {
         whdr[i].dwLoops = 0;                          // ループカウント
         memset(buf[i], 0, SAMPLING_INTERVAL);
     }
+
+    memset(sound_data, 127, SAMPLING_RATE);
+    memset(maxFreqArray, 0, ARRAY_RANGE);
+    bitReverse(reverseTable, SAMPLING_RATE);
+    makeAngleTable(SAMPLING_RATE, cosTable, sinTable);
+
+    // gnuplot
+    gnuplotSet();
+    Sleep(1000 * 5);    // gnuplotウィンドウの表示待機
 
     UINT numDevs = waveInGetNumDevs();
     for (int i = 0; i < numDevs; i++) {

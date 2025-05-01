@@ -5,8 +5,10 @@
 #include <fcntl.h>
 #include <io.h>
 
-#define SAMPLING_RATE       2048
-#define SAMPLING_INTERVAL   102
+#define _O_U16TEXT          0x20000
+
+#define SAMPLING_RATE       16000
+#define SAMPLING_INTERVAL   512
 #define ARRAY_RANGE         100
 #define GNUPLOT             "\"C:/Program Files/gnuplot/bin/gnuplot.exe\""
 #define NUM_BUFFERS         3
@@ -14,8 +16,9 @@
 
 WAVEFORMATEX wfx;
 WAVEHDR whdr[NUM_BUFFERS];
-BYTE buf[NUM_BUFFERS][SAMPLING_INTERVAL];
-BYTE sound_data[SAMPLING_INTERVAL];
+BYTE buf[NUM_BUFFERS][SAMPLING_INTERVAL*2];
+short sound_data[SAMPLING_INTERVAL];
+double processed_data[SAMPLING_INTERVAL];
 double maxFreqArray[ARRAY_RANGE];
 
 FILE *gp, *gp2;
@@ -27,8 +30,9 @@ void gnuplotSet() {
     gp2 = _popen(GNUPLOT, "w");
 
     fprintf(gp, "set xrange [0:%d]\n", SAMPLING_INTERVAL);
-    fprintf(gp, "set yrange [0:255]\n");
+    fprintf(gp, "set yrange [-32768:32767]\n");
 
+    fprintf(gp2, "set datafile missing '?'\n");
     fprintf(gp2, "unset xtics\n");
     fprintf(gp2, "set grid\n");
     fprintf(gp2, "set logscale y\n");
@@ -48,87 +52,80 @@ void gnuplotSet() {
 
 void CALLBACK waveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2) {
     switch (uMsg) {
-        case WIM_OPEN:
+        case WIM_OPEN: {
             wprintf(L"opened\n");
             break;
-        case WIM_DATA:   // バッファが満杯になったとき
-            double YIN[WINDOW] = {0};
-            double sum[WINDOW] = {0};
-            double min = 1, freq = 0;
+        }
+        case WIM_DATA: {  // バッファが満杯になったとき
+            double YIN[WINDOW] = {0}, cumAve[WINDOW] = {0};
+            double sum = 0, freq = 0, pitch = 0;
             int lamda = 0;
 
             // sound_data に入力信号をコピー
-            memcpy((char*)(sound_data), ((LPWAVEHDR)dwParam1)->lpData, ((LPWAVEHDR)dwParam1)->dwBufferLength);
+            memcpy((short*)(sound_data), ((LPWAVEHDR)dwParam1)->lpData, ((LPWAVEHDR)dwParam1)->dwBufferLength);
             // バッファをwaveInに再追加
             MMRESULT r;
             if ((r = waveInAddBuffer(hwi, (LPWAVEHDR)dwParam1, sizeof(WAVEHDR))) != MMSYSERR_NOERROR) {
                 wprintf(L"add error: %ld", r);
             }
 
-            // 小さい音（ノイズ）を0に補正して、gpに波形描画
+            if (cnt >= ARRAY_RANGE) cnt = 0;
+
+            // 無音区間のノイズを切ってから正規化してハニング窓をかける。gpに波形描画
             fprintf(gp, "plot '-' with lines\n");
             for (size_t i = 0; i < SAMPLING_INTERVAL; i++) {
-                sound_data[i] = (125 < sound_data[i] && sound_data[i] < 131) ? 127 : sound_data[i];
+                processed_data[i] = ((double)sound_data[i]/ MAXSHORT);// * hanningWindow[i];
                 fprintf(gp, "%d %d\n", i, sound_data[i]);
             }
             fprintf(gp, "e\n");
             fflush(gp);
             
-            // YIN
+            // YIN と エネルギー計算。一定以下なら「無音」と判断
+            double energy = 0.0;
             for (int tau = 0; tau < WINDOW; tau++) {
-                for (int j = 0; j < WINDOW; j++) {
-                    // YIN[τ] = Σ[j=0, W-1] (x_{j} - x_{j+τ})^2
-                    YIN[tau] += (sound_data[j] - sound_data[j + tau]) * (sound_data[j] - sound_data[j + tau]);
-                }
-            }
-            
-            // 累積平均値で割る
-            YIN[0] = 1;
-            for (int tau = 1; tau < WINDOW; tau++) {
-                sum[tau] = sum[tau-1] + YIN[tau];
-                YIN[tau] = YIN[tau] / (sum[tau] / tau);
-            }
-
-            // 最小値
-            min = 1;
-            for (int i = 0; i < WINDOW; i++) {
-                if (YIN[i] < min) {
-                    min = YIN[i];
-                    lamda = i;
+                energy += processed_data[tau] * processed_data[tau];
+                for (int j = 0; j < WINDOW - tau; j++) {
+                    // YIN[τ] = Σ[j=0, (W-τ)-1] (x_{j} - x_{j+τ})^2
+                    YIN[tau] += (processed_data[j] - processed_data[j + tau]) * (processed_data[j] - processed_data[j + tau]);
                 }
             }
 
-            // 閾値以下のディップのうち、一番時間が早い点を抽出。無いなら最小値
-            min = 1;
-            for (int i = 1; i < WINDOW; i++) {
-                if (YIN[i] < 0.1 && YIN[i] < min) {
-                    min = YIN[i];
-                    lamda = i;
-                    if (YIN[i] < YIN[i+1]) break;
+            if (energy < 7e-8) {pitch = -1;}
+            else {
+                // 累積平均値で割りながら、ディップを探す
+                cumAve[0] = 1;
+                for (int tau = 1; tau < WINDOW; tau++) {
+                    sum += YIN[tau];
+                    cumAve[tau] = YIN[tau] / (sum / tau);
+                    
+                    if (cumAve[tau-1] < 0.15 && cumAve[tau-1] < cumAve[tau]) {    // 閾値以下で右肩上がりになる
+                        lamda = tau-1;
+                        break;
+                    }
                 }
+
+                // ディップ前後の3点で二次関数補完。最小値（頂点）を出す
+                freq = lamda + (cumAve[lamda-1] - cumAve[lamda+1]) / (2.0 * (cumAve[lamda-1] - 2.0 * cumAve[lamda] + cumAve[lamda+1]));
             }
-
-            // ディップ前後の3点で二次関数補完
-            double det1 = 0, det2 = 0;
-            det1 = YIN[lamda-1]*lamda + (lamda-1)*YIN[lamda+1] + YIN[lamda]*(lamda+1) - lamda*YIN[lamda+1] - (lamda-1)*YIN[lamda] - YIN[lamda-1]*(lamda+1);
-            det2 = (lamda-1)*(lamda-1)*YIN[lamda] + YIN[lamda-1]*(lamda+1)*(lamda+1) + lamda*lamda*YIN[lamda+1] - YIN[lamda]*(lamda+1)*(lamda+1) - YIN[lamda-1]*lamda*lamda - (lamda-1)*(lamda-1)*YIN[lamda+1];
-            freq = -det2 / (2 * det1);
-
             // 周波数を maxFreqArray に追加
             maxFreqArray[cnt % ARRAY_RANGE] = freq;
 
-            // 最大周波数の推移を gp2 に描画
-            fprintf(gp2, "plot '-' with lines title 'Frequency'\n");
+            // 最大周波数の推移を gp2 に描画。音が無かったら描画しない (NaN)
+            fprintf(gp2, "plot '-' with lines title 'Pitch'\n");
             for (int i = 0; i < ARRAY_RANGE; i++) {
-                fprintf(gp2, "%d %lf\n", i, maxFreqArray[(cnt + i) % ARRAY_RANGE]);
+                double val = maxFreqArray[(cnt + i) % ARRAY_RANGE];
+                if (val > 50) fprintf(gp2, "%d %lf\n", i, val);
+                else         fprintf(gp2, "%d NaN\n", i);
             }
             fprintf(gp2, "e\n");
             fflush(gp2);
             cnt++;
             break;
-        case WIM_CLOSE:  // waveInがCloseになったとき
+        }
+        case WIM_CLOSE: { // waveInがCloseになったとき
             wprintf(L"closed\n");
             break;
+        }
     }
 }
 
@@ -146,22 +143,22 @@ int main(void) {
     wfx.wFormatTag = WAVE_FORMAT_PCM;       // フォーマット形式
     wfx.nChannels = 1;                      // チャンネル数。モノラル:1, ステレオ:2
     wfx.nSamplesPerSec = SAMPLING_RATE;     // サンプリング周波数[Hz]
-    wfx.nAvgBytesPerSec = SAMPLING_RATE;    // 1秒あたりのバイト数。SamplesPerSec * nBlockAlign
-    wfx.wBitsPerSample = 8;                 // サンプル当たりのビット数
-    wfx.nBlockAlign = 1;                    // ブロック長[Byte]。多分1サンプルの長さ(wBitsPerSample / 8)
+    wfx.nAvgBytesPerSec = SAMPLING_RATE*2;    // 1秒あたりのバイト数。SamplesPerSec * nBlockAlign
+    wfx.wBitsPerSample = 16;                 // サンプル当たりのビット数
+    wfx.nBlockAlign = 2;                    // ブロック長[Byte]。多分1サンプルの長さ(wBitsPerSample / 8)
     wfx.cbSize = 0;                         // 拡張フォーマット情報の長さ[Byte]
-
-    memset(sound_data, 127, SAMPLING_INTERVAL);
-    memset(maxFreqArray, 0, ARRAY_RANGE);
 
     for (int i = 0; i < NUM_BUFFERS; i++) {
         whdr[i].lpData = (char *)buf[i];              // サンプル保存先
-        whdr[i].dwBufferLength = SAMPLING_INTERVAL;   // 保存先の長さ[Byte]
+        whdr[i].dwBufferLength = SAMPLING_INTERVAL*2;   // 保存先の長さ[Byte]
         whdr[i].dwBytesRecorded = 0;                  // すでに保存されてるバイト数
         whdr[i].dwFlags = 0;                          // フラグ
         whdr[i].dwLoops = 0;                          // ループカウント
         memset(buf[i], 0, SAMPLING_INTERVAL);
     }
+
+    memset(sound_data, 0, SAMPLING_INTERVAL);
+    memset(processed_data, 0, SAMPLING_INTERVAL);
 
     UINT numDevs = waveInGetNumDevs();
     for (int i = 0; i < numDevs; i++) {
