@@ -3,8 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\yukku\\Desktop\\Programs\\C\\Karaoke\\KaraokeC#\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{881EFAF4-C270-4BCF-92F4-79B415A9CE8F}|FrequencyPrinter\\FrequencyPrinter.csproj|c:\\users\\yukku\\desktop\\programs\\c\\karaoke\\karaokec#\\frequencyprinter\\frequencyprinter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
-      "RelativeMoniker": "D:0:0:{881EFAF4-C270-4BCF-92F4-79B415A9CE8F}|FrequencyPrinter\\FrequencyPrinter.csproj|solutionrelative:frequencyprinter\\frequencyprinter.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+      "AbsoluteMoniker": "D:0:0:{998BA64E-57C8-4771-A515-9C90AC9B6A03}|Karaoke\\Karaoke.csproj|C:\\Users\\yukku\\Desktop\\Programs\\C\\Karaoke\\KaraokeC#\\karaoke\\karaoke.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{998BA64E-57C8-4771-A515-9C90AC9B6A03}|Karaoke\\Karaoke.csproj|solutionrelative:karaoke\\karaoke.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{998BA64E-57C8-4771-A515-9C90AC9B6A03}|Karaoke\\Karaoke.csproj|c:\\users\\yukku\\desktop\\programs\\c\\karaoke\\karaokec#\\karaoke\\karaoke.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{998BA64E-57C8-4771-A515-9C90AC9B6A03}|Karaoke\\Karaoke.csproj|solutionrelative:karaoke\\karaoke.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,18 +18,31 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "FrequencyPrinter.cs [\u30C7\u30B6\u30A4\u30F3]",
-              "DocumentMoniker": "C:\\Users\\yukku\\Desktop\\Programs\\C\\Karaoke\\KaraokeC#\\FrequencyPrinter\\FrequencyPrinter.cs",
-              "RelativeDocumentMoniker": "FrequencyPrinter\\FrequencyPrinter.cs",
-              "ToolTip": "C:\\Users\\yukku\\Desktop\\Programs\\C\\Karaoke\\KaraokeC#\\FrequencyPrinter\\FrequencyPrinter.cs [\u30C7\u30B6\u30A4\u30F3]",
-              "RelativeToolTip": "FrequencyPrinter\\FrequencyPrinter.cs [\u30C7\u30B6\u30A4\u30F3]",
+              "DocumentIndex": 1,
+              "Title": "Karaoke.cs",
+              "DocumentMoniker": "C:\\Users\\yukku\\Desktop\\Programs\\C\\Karaoke\\KaraokeC#\\Karaoke\\Karaoke.cs",
+              "RelativeDocumentMoniker": "Karaoke\\Karaoke.cs",
+              "ToolTip": "C:\\Users\\yukku\\Desktop\\Programs\\C\\Karaoke\\KaraokeC#\\Karaoke\\Karaoke.cs",
+              "RelativeToolTip": "Karaoke\\Karaoke.cs",
+              "ViewState": "AgIAALMAAAAAAAAAAAAAANAAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-08-16T14:17:16.537Z",
+              "WhenOpened": "2025-08-19T16:48:44.017Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Karaoke.cs [\u30C7\u30B6\u30A4\u30F3]",
+              "DocumentMoniker": "C:\\Users\\yukku\\Desktop\\Programs\\C\\Karaoke\\KaraokeC#\\Karaoke\\Karaoke.cs",
+              "RelativeDocumentMoniker": "Karaoke\\Karaoke.cs",
+              "ToolTip": "C:\\Users\\yukku\\Desktop\\Programs\\C\\Karaoke\\KaraokeC#\\Karaoke\\Karaoke.cs [\u30C7\u30B6\u30A4\u30F3]",
+              "RelativeToolTip": "Karaoke\\Karaoke.cs [\u30C7\u30B6\u30A4\u30F3]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-08-19T16:48:36.658Z",
               "EditorCaption": " [\u30C7\u30B6\u30A4\u30F3]"
             }
           ]
