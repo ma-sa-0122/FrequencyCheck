@@ -29,15 +29,15 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea13 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-            System.Windows.Forms.DataVisualization.Charting.Legend legend13 = new System.Windows.Forms.DataVisualization.Charting.Legend();
-            System.Windows.Forms.DataVisualization.Charting.Series series13 = new System.Windows.Forms.DataVisualization.Charting.Series();
-            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea14 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-            System.Windows.Forms.DataVisualization.Charting.Legend legend14 = new System.Windows.Forms.DataVisualization.Charting.Legend();
-            System.Windows.Forms.DataVisualization.Charting.Series series14 = new System.Windows.Forms.DataVisualization.Charting.Series();
-            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea15 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-            System.Windows.Forms.DataVisualization.Charting.Legend legend15 = new System.Windows.Forms.DataVisualization.Charting.Legend();
-            System.Windows.Forms.DataVisualization.Charting.Series series15 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea7 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend7 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series7 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea8 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend8 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series8 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea9 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend9 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series9 = new System.Windows.Forms.DataVisualization.Charting.Series();
             this.chartInputWave = new System.Windows.Forms.DataVisualization.Charting.Chart();
             this.chartCumAve = new System.Windows.Forms.DataVisualization.Charting.Chart();
             this.chartPitch = new System.Windows.Forms.DataVisualization.Charting.Chart();
@@ -55,25 +55,28 @@
             this.samprate = new System.Windows.Forms.DomainUpDown();
             this.scale = new System.Windows.Forms.DomainUpDown();
             this.label3 = new System.Windows.Forms.Label();
+            this.label4 = new System.Windows.Forms.Label();
+            this.energyUpDown = new System.Windows.Forms.NumericUpDown();
             ((System.ComponentModel.ISupportInitialize)(this.chartInputWave)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.chartCumAve)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.chartPitch)).BeginInit();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mps)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.energyUpDown)).BeginInit();
             this.SuspendLayout();
             // 
             // chartInputWave
             // 
-            chartArea13.Name = "ChartArea1";
-            this.chartInputWave.ChartAreas.Add(chartArea13);
-            legend13.Name = "Legend1";
-            this.chartInputWave.Legends.Add(legend13);
+            chartArea7.Name = "ChartArea1";
+            this.chartInputWave.ChartAreas.Add(chartArea7);
+            legend7.Name = "Legend1";
+            this.chartInputWave.Legends.Add(legend7);
             this.chartInputWave.Location = new System.Drawing.Point(12, 12);
             this.chartInputWave.Name = "chartInputWave";
-            series13.ChartArea = "ChartArea1";
-            series13.Legend = "Legend1";
-            series13.Name = "Series1";
-            this.chartInputWave.Series.Add(series13);
+            series7.ChartArea = "ChartArea1";
+            series7.Legend = "Legend1";
+            series7.Name = "Series1";
+            this.chartInputWave.Series.Add(series7);
             this.chartInputWave.Size = new System.Drawing.Size(500, 450);
             this.chartInputWave.TabIndex = 0;
             this.chartInputWave.TabStop = false;
@@ -81,16 +84,16 @@
             // 
             // chartCumAve
             // 
-            chartArea14.Name = "ChartArea1";
-            this.chartCumAve.ChartAreas.Add(chartArea14);
-            legend14.Name = "Legend1";
-            this.chartCumAve.Legends.Add(legend14);
+            chartArea8.Name = "ChartArea1";
+            this.chartCumAve.ChartAreas.Add(chartArea8);
+            legend8.Name = "Legend1";
+            this.chartCumAve.Legends.Add(legend8);
             this.chartCumAve.Location = new System.Drawing.Point(562, 12);
             this.chartCumAve.Name = "chartCumAve";
-            series14.ChartArea = "ChartArea1";
-            series14.Legend = "Legend1";
-            series14.Name = "Series1";
-            this.chartCumAve.Series.Add(series14);
+            series8.ChartArea = "ChartArea1";
+            series8.Legend = "Legend1";
+            series8.Name = "Series1";
+            this.chartCumAve.Series.Add(series8);
             this.chartCumAve.Size = new System.Drawing.Size(500, 450);
             this.chartCumAve.TabIndex = 1;
             this.chartCumAve.TabStop = false;
@@ -98,16 +101,16 @@
             // 
             // chartPitch
             // 
-            chartArea15.Name = "ChartArea1";
-            this.chartPitch.ChartAreas.Add(chartArea15);
-            legend15.Name = "Legend1";
-            this.chartPitch.Legends.Add(legend15);
+            chartArea9.Name = "ChartArea1";
+            this.chartPitch.ChartAreas.Add(chartArea9);
+            legend9.Name = "Legend1";
+            this.chartPitch.Legends.Add(legend9);
             this.chartPitch.Location = new System.Drawing.Point(562, 517);
             this.chartPitch.Name = "chartPitch";
-            series15.ChartArea = "ChartArea1";
-            series15.Legend = "Legend1";
-            series15.Name = "Series1";
-            this.chartPitch.Series.Add(series15);
+            series9.ChartArea = "ChartArea1";
+            series9.Legend = "Legend1";
+            series9.Name = "Series1";
+            this.chartPitch.Series.Add(series9);
             this.chartPitch.Size = new System.Drawing.Size(500, 500);
             this.chartPitch.TabIndex = 2;
             this.chartPitch.TabStop = false;
@@ -115,9 +118,9 @@
             // 
             // buttonRec
             // 
-            this.buttonRec.Location = new System.Drawing.Point(65, 833);
+            this.buttonRec.Location = new System.Drawing.Point(12, 833);
             this.buttonRec.Name = "buttonRec";
-            this.buttonRec.Size = new System.Drawing.Size(403, 81);
+            this.buttonRec.Size = new System.Drawing.Size(500, 81);
             this.buttonRec.TabIndex = 3;
             this.buttonRec.Text = "Start REC";
             this.buttonRec.UseVisualStyleBackColor = true;
@@ -126,9 +129,9 @@
             // buttonStop
             // 
             this.buttonStop.Enabled = false;
-            this.buttonStop.Location = new System.Drawing.Point(65, 936);
+            this.buttonStop.Location = new System.Drawing.Point(12, 936);
             this.buttonStop.Name = "buttonStop";
-            this.buttonStop.Size = new System.Drawing.Size(403, 81);
+            this.buttonStop.Size = new System.Drawing.Size(500, 81);
             this.buttonStop.TabIndex = 4;
             this.buttonStop.Text = "Stop REC";
             this.buttonStop.UseVisualStyleBackColor = true;
@@ -138,7 +141,7 @@
             // 
             this.isFourier.AutoSize = true;
             this.isFourier.Checked = true;
-            this.isFourier.Location = new System.Drawing.Point(47, 20);
+            this.isFourier.Location = new System.Drawing.Point(7, 20);
             this.isFourier.Name = "isFourier";
             this.isFourier.Size = new System.Drawing.Size(219, 28);
             this.isFourier.TabIndex = 5;
@@ -149,7 +152,7 @@
             // isYIN
             // 
             this.isYIN.AutoSize = true;
-            this.isYIN.Location = new System.Drawing.Point(47, 68);
+            this.isYIN.Location = new System.Drawing.Point(7, 68);
             this.isYIN.Name = "isYIN";
             this.isYIN.Size = new System.Drawing.Size(76, 28);
             this.isYIN.TabIndex = 6;
@@ -160,25 +163,25 @@
             // 
             this.panel1.Controls.Add(this.isYIN);
             this.panel1.Controls.Add(this.isFourier);
-            this.panel1.Location = new System.Drawing.Point(65, 702);
+            this.panel1.Location = new System.Drawing.Point(12, 702);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(403, 108);
+            this.panel1.Size = new System.Drawing.Size(228, 108);
             this.panel1.TabIndex = 7;
             // 
             // listBoxDevices
             // 
             this.listBoxDevices.FormattingEnabled = true;
             this.listBoxDevices.ItemHeight = 24;
-            this.listBoxDevices.Location = new System.Drawing.Point(65, 517);
+            this.listBoxDevices.Location = new System.Drawing.Point(124, 517);
             this.listBoxDevices.Name = "listBoxDevices";
-            this.listBoxDevices.Size = new System.Drawing.Size(303, 76);
+            this.listBoxDevices.Size = new System.Drawing.Size(388, 76);
             this.listBoxDevices.TabIndex = 8;
             // 
             // buttonDeviceUpdate
             // 
-            this.buttonDeviceUpdate.Location = new System.Drawing.Point(381, 517);
+            this.buttonDeviceUpdate.Location = new System.Drawing.Point(12, 517);
             this.buttonDeviceUpdate.Name = "buttonDeviceUpdate";
-            this.buttonDeviceUpdate.Size = new System.Drawing.Size(87, 76);
+            this.buttonDeviceUpdate.Size = new System.Drawing.Size(106, 76);
             this.buttonDeviceUpdate.TabIndex = 9;
             this.buttonDeviceUpdate.Text = "update";
             this.buttonDeviceUpdate.UseVisualStyleBackColor = true;
@@ -192,7 +195,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(61, 652);
+            this.label1.Location = new System.Drawing.Point(8, 652);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(249, 24);
             this.label1.TabIndex = 11;
@@ -200,14 +203,14 @@
             // 
             // mps
             // 
-            this.mps.Location = new System.Drawing.Point(348, 650);
+            this.mps.Location = new System.Drawing.Point(357, 650);
             this.mps.Minimum = new decimal(new int[] {
             1,
             0,
             0,
             0});
             this.mps.Name = "mps";
-            this.mps.Size = new System.Drawing.Size(120, 31);
+            this.mps.Size = new System.Drawing.Size(155, 31);
             this.mps.TabIndex = 12;
             this.mps.Value = new decimal(new int[] {
             30,
@@ -218,7 +221,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(61, 614);
+            this.label2.Location = new System.Drawing.Point(8, 614);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(160, 24);
             this.label2.TabIndex = 13;
@@ -231,9 +234,9 @@
             this.samprate.Items.Add("16384");
             this.samprate.Items.Add("11052");
             this.samprate.Items.Add("8192");
-            this.samprate.Location = new System.Drawing.Point(348, 612);
+            this.samprate.Location = new System.Drawing.Point(357, 612);
             this.samprate.Name = "samprate";
-            this.samprate.Size = new System.Drawing.Size(120, 31);
+            this.samprate.Size = new System.Drawing.Size(155, 31);
             this.samprate.TabIndex = 14;
             this.samprate.Text = "16384";
             // 
@@ -268,11 +271,40 @@
             this.label3.TabIndex = 16;
             this.label3.Text = "Scale : ";
             // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(246, 724);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(237, 24);
+            this.label4.TabIndex = 17;
+            this.label4.Text = "-> energy under limit : ";
+            // 
+            // energyUpDown
+            // 
+            this.energyUpDown.DecimalPlaces = 8;
+            this.energyUpDown.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            458752});
+            this.energyUpDown.Location = new System.Drawing.Point(357, 767);
+            this.energyUpDown.Name = "energyUpDown";
+            this.energyUpDown.Size = new System.Drawing.Size(155, 31);
+            this.energyUpDown.TabIndex = 18;
+            this.energyUpDown.Value = new decimal(new int[] {
+            1,
+            0,
+            0,
+            262144});
+            // 
             // PichPrinter
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(192F, 192F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.ClientSize = new System.Drawing.Size(1074, 1029);
+            this.Controls.Add(this.energyUpDown);
+            this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.scale);
             this.Controls.Add(this.samprate);
@@ -297,6 +329,7 @@
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mps)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.energyUpDown)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -321,6 +354,8 @@
         private System.Windows.Forms.DomainUpDown samprate;
         private System.Windows.Forms.DomainUpDown scale;
         private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.NumericUpDown energyUpDown;
     }
 }
 

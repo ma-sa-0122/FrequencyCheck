@@ -35,6 +35,7 @@ namespace Karaoke
         private int pitchOffset = 0;
 
         private int maxPowerSpeq = 0;
+        private double minEnergy = 1e-4;
 
         private readonly Dictionary<string, int> noteOffsetMap = new Dictionary<string, int> {
             { "C / Am", 0 },
@@ -86,6 +87,7 @@ namespace Karaoke
             MakeHanningTable(); // ハニング窓再生成
 
             maxPowerSpeq = (int)(20.0 * Math.Log10(samplingRate) * 0.6); // 理論値は20*log10(N)。実現値はせいぜい6割程度
+            minEnergy = (double)energyUpDown.Value;
         }
 
 
@@ -345,7 +347,7 @@ namespace Karaoke
             for (int i = 0; i < x.Length; i++)
                 energy += x[i] * x[i];
 
-            if (energy < 1e-4)
+            if (energy < minEnergy)
                 return (-1, new double[samplingRate / 2]);
 
             (double frequency, double[] auxData) result;

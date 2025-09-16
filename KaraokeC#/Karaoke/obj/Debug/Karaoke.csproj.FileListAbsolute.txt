@@ -103,3 +103,7 @@ C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\System.Sec
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\System.Security.Principal.Windows.xml
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\System.ValueTuple.xml
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\obj\Debug\Karaoke.csproj.Up2Date
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\Newtonsoft.Json.dll
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\Newtonsoft.Json.xml
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\System.Buffers.dll
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\System.Buffers.xml

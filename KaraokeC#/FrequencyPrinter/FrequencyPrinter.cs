@@ -96,11 +96,11 @@ namespace Karaoke
             area.AxisY2.Minimum = 0;
             area.AxisY2.Maximum = VALID_MAX;
 
-            //area.AxisY.IsLogarithmic = true;
-            //area.AxisY.LogarithmBase = 2;
+            area.AxisY.IsLogarithmic = true;
+            area.AxisY.LogarithmBase = 2;
 
-            //area.AxisY2.IsLogarithmic = true;
-            //area.AxisY2.LogarithmBase = 2;
+            area.AxisY2.IsLogarithmic = true;
+            area.AxisY2.LogarithmBase = 2;
 
             // 音階ラベル設定
             string[] noteNames = {"A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#"};
@@ -119,6 +119,7 @@ namespace Karaoke
                 area.AxisY2.CustomLabels.Add(label);
                 i++;
             }
+            chartFreq.Update();
         }
 
         private void MakeTable()
