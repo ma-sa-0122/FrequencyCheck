@@ -68,3 +68,7 @@ C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\obj\Release\Karaoke.
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\obj\Release\Karaoke.csproj.Up2Date
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\obj\Release\Karaoke.exe
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\obj\Release\Karaoke.pdb
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Release\Newtonsoft.Json.dll
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Release\System.Buffers.dll
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Release\Newtonsoft.Json.xml
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Release\System.Buffers.xml

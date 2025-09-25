@@ -38,18 +38,21 @@ namespace Karaoke
         private double minEnergy = 1e-4;
 
         private readonly Dictionary<string, int> noteOffsetMap = new Dictionary<string, int> {
-            { "C / Am", 0 },
-            { "F / Dm (b1)", 5 },
-            { "Bb / Gm (b2)", 10 },
-            { "Eb / Cm (b3)", 3 },
-            { "Ab / Fm (b4)", 8 },
+            { "C# / A#m (#7)", 1 },
+            { "F# / D#m (#6)", 6 },
+            { "B  / G#m (#5)", 11 },
+            { "E  / C#m (#4)", 4 },
+            { "A  / F#m (#3)", 9 },
+            { "D  / Bm  (#2)", 2 },
+            { "G  / Em  (#1)", 7 },
+            { "C  / Am", 0 },
+            { "F  / Dm  (b1)", 5 },
+            { "Bb / Gm  (b2)", 10 },
+            { "Eb / Cm  (b3)", 3 },
+            { "Ab / Fm  (b4)", 8 },
             { "Db / Bbm (b5)", 1 },
             { "Gb / Ebm (b6)", 6 },
-            { "B / G#m (#5)", 11 },
-            { "E / C#m (#4)", 4 },
-            { "A / F#m (#3)", 9 },
-            { "D / Bm (#2)", 2 },
-            { "G / Em (#1)", 7 },
+            { "Cb / Abm (b7)", 11 },
         };
 
         public PichPrinter()

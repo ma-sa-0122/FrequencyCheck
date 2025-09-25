@@ -29,12 +29,12 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea3 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-            System.Windows.Forms.DataVisualization.Charting.Legend legend3 = new System.Windows.Forms.DataVisualization.Charting.Legend();
-            System.Windows.Forms.DataVisualization.Charting.Series series3 = new System.Windows.Forms.DataVisualization.Charting.Series();
-            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea4 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-            System.Windows.Forms.DataVisualization.Charting.Legend legend4 = new System.Windows.Forms.DataVisualization.Charting.Legend();
-            System.Windows.Forms.DataVisualization.Charting.Series series4 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea7 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend7 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series7 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea8 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend8 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series8 = new System.Windows.Forms.DataVisualization.Charting.Series();
             this.chartInputWave = new System.Windows.Forms.DataVisualization.Charting.Chart();
             this.chartPitch = new System.Windows.Forms.DataVisualization.Charting.Chart();
             this.buttonPlay = new System.Windows.Forms.Button();
@@ -62,6 +62,14 @@
             this.labelFreq = new System.Windows.Forms.Label();
             this.timerPlay = new System.Windows.Forms.Timer(this.components);
             this.buttonDeSelect = new System.Windows.Forms.Button();
+            this.trackBarVolume = new System.Windows.Forms.TrackBar();
+            this.label5 = new System.Windows.Forms.Label();
+            this.labelMusicLength = new System.Windows.Forms.Label();
+            this.labelCurrentTime = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.latencyUpDown = new System.Windows.Forms.NumericUpDown();
+            this.buttonPageBack = new System.Windows.Forms.Button();
+            this.buttonPageForward = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.chartInputWave)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.chartPitch)).BeginInit();
             this.panel1.SuspendLayout();
@@ -69,37 +77,39 @@
             ((System.ComponentModel.ISupportInitialize)(this.mps)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarMusic)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.OctaveUpDown)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarVolume)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.latencyUpDown)).BeginInit();
             this.SuspendLayout();
             // 
             // chartInputWave
             // 
-            chartArea3.Name = "ChartArea1";
-            this.chartInputWave.ChartAreas.Add(chartArea3);
-            legend3.Name = "Legend1";
-            this.chartInputWave.Legends.Add(legend3);
+            chartArea7.Name = "ChartArea1";
+            this.chartInputWave.ChartAreas.Add(chartArea7);
+            legend7.Name = "Legend1";
+            this.chartInputWave.Legends.Add(legend7);
             this.chartInputWave.Location = new System.Drawing.Point(562, 12);
             this.chartInputWave.Name = "chartInputWave";
-            series3.ChartArea = "ChartArea1";
-            series3.Legend = "Legend1";
-            series3.Name = "Series1";
-            this.chartInputWave.Series.Add(series3);
-            this.chartInputWave.Size = new System.Drawing.Size(500, 452);
+            series7.ChartArea = "ChartArea1";
+            series7.Legend = "Legend1";
+            series7.Name = "Series1";
+            this.chartInputWave.Series.Add(series7);
+            this.chartInputWave.Size = new System.Drawing.Size(500, 375);
             this.chartInputWave.TabIndex = 0;
             this.chartInputWave.TabStop = false;
             this.chartInputWave.Text = "chart1";
             // 
             // chartPitch
             // 
-            chartArea4.Name = "ChartArea1";
-            this.chartPitch.ChartAreas.Add(chartArea4);
-            legend4.Name = "Legend1";
-            this.chartPitch.Legends.Add(legend4);
+            chartArea8.Name = "ChartArea1";
+            this.chartPitch.ChartAreas.Add(chartArea8);
+            legend8.Name = "Legend1";
+            this.chartPitch.Legends.Add(legend8);
             this.chartPitch.Location = new System.Drawing.Point(12, 517);
             this.chartPitch.Name = "chartPitch";
-            series4.ChartArea = "ChartArea1";
-            series4.Legend = "Legend1";
-            series4.Name = "Series1";
-            this.chartPitch.Series.Add(series4);
+            series8.ChartArea = "ChartArea1";
+            series8.Legend = "Legend1";
+            series8.Name = "Series1";
+            this.chartPitch.Series.Add(series8);
             this.chartPitch.Size = new System.Drawing.Size(1050, 500);
             this.chartPitch.TabIndex = 2;
             this.chartPitch.TabStop = false;
@@ -306,9 +316,9 @@
             // 
             // trackBarMusic
             // 
-            this.trackBarMusic.Location = new System.Drawing.Point(12, 422);
+            this.trackBarMusic.Location = new System.Drawing.Point(63, 422);
             this.trackBarMusic.Name = "trackBarMusic";
-            this.trackBarMusic.Size = new System.Drawing.Size(544, 90);
+            this.trackBarMusic.Size = new System.Drawing.Size(424, 90);
             this.trackBarMusic.TabIndex = 16;
             // 
             // labelLyrics
@@ -326,9 +336,9 @@
             this.label4.AutoSize = true;
             this.label4.Location = new System.Drawing.Point(161, 395);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(99, 24);
+            this.label4.Size = new System.Drawing.Size(100, 24);
             this.label4.TabIndex = 18;
-            this.label4.Text = "Ovtave : ";
+            this.label4.Text = "Octave : ";
             // 
             // OctaveUpDown
             // 
@@ -350,7 +360,7 @@
             // labelFreq
             // 
             this.labelFreq.AutoSize = true;
-            this.labelFreq.Location = new System.Drawing.Point(1007, 487);
+            this.labelFreq.Location = new System.Drawing.Point(1006, 483);
             this.labelFreq.Name = "labelFreq";
             this.labelFreq.Size = new System.Drawing.Size(55, 24);
             this.labelFreq.TabIndex = 19;
@@ -371,13 +381,112 @@
             this.buttonDeSelect.UseVisualStyleBackColor = true;
             this.buttonDeSelect.Click += new System.EventHandler(this.buttonDeSelect_Click);
             // 
+            // trackBarVolume
+            // 
+            this.trackBarVolume.LargeChange = 10;
+            this.trackBarVolume.Location = new System.Drawing.Point(871, 422);
+            this.trackBarVolume.Maximum = 100;
+            this.trackBarVolume.Name = "trackBarVolume";
+            this.trackBarVolume.Size = new System.Drawing.Size(191, 90);
+            this.trackBarVolume.TabIndex = 10;
+            this.trackBarVolume.TickFrequency = 10;
+            this.trackBarVolume.Value = 100;
+            this.trackBarVolume.ValueChanged += new System.EventHandler(this.trackBarVolume_ValueChanged);
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(762, 429);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(103, 24);
+            this.label5.TabIndex = 21;
+            this.label5.Text = "Volume : ";
+            // 
+            // labelMusicLength
+            // 
+            this.labelMusicLength.AutoSize = true;
+            this.labelMusicLength.Location = new System.Drawing.Point(480, 429);
+            this.labelMusicLength.Name = "labelMusicLength";
+            this.labelMusicLength.Size = new System.Drawing.Size(63, 24);
+            this.labelMusicLength.TabIndex = 22;
+            this.labelMusicLength.Text = "00:00";
+            // 
+            // labelCurrentTime
+            // 
+            this.labelCurrentTime.AutoSize = true;
+            this.labelCurrentTime.Location = new System.Drawing.Point(5, 429);
+            this.labelCurrentTime.Name = "labelCurrentTime";
+            this.labelCurrentTime.Size = new System.Drawing.Size(63, 24);
+            this.labelCurrentTime.TabIndex = 23;
+            this.labelCurrentTime.Text = "00:00";
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(762, 395);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(107, 24);
+            this.label7.TabIndex = 24;
+            this.label7.Text = "latency :  ";
+            // 
+            // latencyUpDown
+            // 
+            this.latencyUpDown.DecimalPlaces = 3;
+            this.latencyUpDown.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            196608});
+            this.latencyUpDown.Location = new System.Drawing.Point(930, 393);
+            this.latencyUpDown.Maximum = new decimal(new int[] {
+            5,
+            0,
+            0,
+            0});
+            this.latencyUpDown.Minimum = new decimal(new int[] {
+            5,
+            0,
+            0,
+            -2147483648});
+            this.latencyUpDown.Name = "latencyUpDown";
+            this.latencyUpDown.Size = new System.Drawing.Size(132, 31);
+            this.latencyUpDown.TabIndex = 25;
+            this.latencyUpDown.ValueChanged += new System.EventHandler(this.latencyUpDown_ValueChanged);
+            // 
+            // buttonPageBack
+            // 
+            this.buttonPageBack.Location = new System.Drawing.Point(562, 416);
+            this.buttonPageBack.Name = "buttonPageBack";
+            this.buttonPageBack.Size = new System.Drawing.Size(50, 50);
+            this.buttonPageBack.TabIndex = 26;
+            this.buttonPageBack.Text = "<<";
+            this.buttonPageBack.UseVisualStyleBackColor = true;
+            this.buttonPageBack.Click += new System.EventHandler(this.buttonPageBack_Click);
+            // 
+            // buttonPageForward
+            // 
+            this.buttonPageForward.Location = new System.Drawing.Point(618, 416);
+            this.buttonPageForward.Name = "buttonPageForward";
+            this.buttonPageForward.Size = new System.Drawing.Size(50, 50);
+            this.buttonPageForward.TabIndex = 27;
+            this.buttonPageForward.Text = ">>";
+            this.buttonPageForward.UseVisualStyleBackColor = true;
+            this.buttonPageForward.Click += new System.EventHandler(this.buttonPageForward_Click);
+            // 
             // Karaoke
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(192F, 192F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.ClientSize = new System.Drawing.Size(1074, 1029);
-            this.Controls.Add(this.buttonDeSelect);
+            this.Controls.Add(this.buttonPageForward);
+            this.Controls.Add(this.buttonPageBack);
+            this.Controls.Add(this.latencyUpDown);
+            this.Controls.Add(this.label7);
+            this.Controls.Add(this.labelCurrentTime);
+            this.Controls.Add(this.labelMusicLength);
+            this.Controls.Add(this.label5);
             this.Controls.Add(this.labelFreq);
+            this.Controls.Add(this.buttonDeSelect);
             this.Controls.Add(this.energyUpDown);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.OctaveUpDown);
@@ -396,10 +505,13 @@
             this.Controls.Add(this.buttonPlay);
             this.Controls.Add(this.chartPitch);
             this.Controls.Add(this.chartInputWave);
+            this.Controls.Add(this.trackBarVolume);
+            this.KeyPreview = true;
             this.MaximizeBox = false;
             this.Name = "Karaoke";
             this.Text = "Karaoke";
             this.Shown += new System.EventHandler(this.Karaoke_Shown);
+            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.Karaoke_KeyDown);
             ((System.ComponentModel.ISupportInitialize)(this.chartInputWave)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.chartPitch)).EndInit();
             this.panel1.ResumeLayout(false);
@@ -408,6 +520,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.mps)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarMusic)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.OctaveUpDown)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarVolume)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.latencyUpDown)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -442,6 +556,14 @@
         private System.Windows.Forms.Label labelFreq;
         private System.Windows.Forms.Timer timerPlay;
         private System.Windows.Forms.Button buttonDeSelect;
+        private System.Windows.Forms.TrackBar trackBarVolume;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.Label labelMusicLength;
+        private System.Windows.Forms.Label labelCurrentTime;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.NumericUpDown latencyUpDown;
+        private System.Windows.Forms.Button buttonPageBack;
+        private System.Windows.Forms.Button buttonPageForward;
     }
 }
 

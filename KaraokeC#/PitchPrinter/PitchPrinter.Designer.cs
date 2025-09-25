@@ -242,24 +242,27 @@
             // 
             // scale
             // 
-            this.scale.Items.Add("B / G#m (#5)");
-            this.scale.Items.Add("E / C#m (#4)");
-            this.scale.Items.Add("A / F#m (#3)");
-            this.scale.Items.Add("D / Bm (#2)");
-            this.scale.Items.Add("G / Em (#1)");
-            this.scale.Items.Add("C / Am");
-            this.scale.Items.Add("F / Dm (b1)");
-            this.scale.Items.Add("Bb / Gm (b2)");
-            this.scale.Items.Add("Eb / Cm (b3)");
-            this.scale.Items.Add("Ab / Fm (b4)");
+            this.scale.Items.Add("C# / A#m (#7)");
+            this.scale.Items.Add("F# / C#m (#6)");
+            this.scale.Items.Add("B  / G#m (#5)");
+            this.scale.Items.Add("E  / C#m (#4)");
+            this.scale.Items.Add("A  / F#m (#3)");
+            this.scale.Items.Add("D  / Bm  (#2)");
+            this.scale.Items.Add("G  / Em  (#1)");
+            this.scale.Items.Add("C  / Am");
+            this.scale.Items.Add("F  / Dm  (b1)");
+            this.scale.Items.Add("Bb / Gm  (b2)");
+            this.scale.Items.Add("Eb / Cm  (b3)");
+            this.scale.Items.Add("Ab / Fm  (b4)");
             this.scale.Items.Add("Db / Bbm (b5)");
             this.scale.Items.Add("Gb / Ebm (b6)");
+            this.scale.Items.Add("Cb / Abm (b7)");
             this.scale.Location = new System.Drawing.Point(647, 480);
             this.scale.Name = "scale";
             this.scale.RightToLeft = System.Windows.Forms.RightToLeft.No;
             this.scale.Size = new System.Drawing.Size(415, 31);
             this.scale.TabIndex = 15;
-            this.scale.Text = "C / Am";
+            this.scale.Text = "C  / Am";
             this.scale.SelectedItemChanged += new System.EventHandler(this.scale_SelectedItemChanged);
             // 
             // label3

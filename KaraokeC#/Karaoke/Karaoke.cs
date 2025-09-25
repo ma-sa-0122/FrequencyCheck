@@ -39,7 +39,7 @@ namespace Karaoke
         private WasapiOut wasapiOut;
         private AudioFileReader music;
 
-        private double latency = 0.05;
+        private double latency = 0;
 
         // wasapiCapture はバッファサイズが不安定なので、固定長のリングバッファを用意
         double[] ringBuffer_waveIn;
@@ -174,13 +174,13 @@ namespace Karaoke
             chartPitch.PrePaint += chartPitch_PrePaint;
         }
 
-        private void SetupYAxis(int centerNote)
+        private void SetupYAxis(int centerNote, int maxNote = -1, int minNote = -1)
         {
             var axisY = chartPitch.ChartAreas[0].AxisY;
             axisY.CustomLabels.Clear();
 
-            int minNote = centerNote - 12;
-            int maxNote = centerNote + 12;
+            if (maxNote < 0) maxNote = centerNote + 12;
+            if (minNote < 0) minNote = centerNote - 12;
 
             axisY.Minimum = minNote;
             axisY.Maximum = maxNote;
@@ -225,8 +225,9 @@ namespace Karaoke
             wasapiCapture = new WasapiCapture(device);
             wasapiCapture.WaveFormat = new WaveFormat(samplingRate, 16, 1);
         }
-        private void SetupWasapiCapture()
+        private async void SetupWasapiCapture()
         {
+            await Task.Delay(500);
             wasapiCapture.DataAvailable += WaveIn_DataAvailable;
             wasapiCapture.StartRecording();
         }
@@ -245,6 +246,8 @@ namespace Karaoke
                 string songName = listBoxMusic.SelectedItem as string;
 
                 music = new AudioFileReader(NoteUtils.changeFIleNameToPath(songName));
+                music.Volume = trackBarVolume.Value / 100.0f;
+
                 wasapiOut.Init(music);
 
                 LoadSong(songName);
@@ -257,47 +260,77 @@ namespace Karaoke
         /*
          遅延評価
          */
-        private double CalibrateLatency()
+        double CalibrateLatency()
         {
             var waveFormat = new WaveFormat(samplingRate, 1);
 
-            using (var output = new WasapiOut(AudioClientShareMode.Shared, true, (int)(latency * 1000)))
+            // 短いホワイトノイズ (10ms)
+            int len = waveFormat.SampleRate / 100;
+            float[] noise = new float[len];
+            Random rnd = new Random();
+            for (int i = 0; i < len; i++) noise[i] = (float)(rnd.NextDouble() * 2 - 1);
+
+            // PCM化
+            byte[] noiseBytes = noise.SelectMany(
+                v => BitConverter.GetBytes((short)(v * short.MaxValue))
+            ).ToArray();
+
+            // 再生
+            var buffer = new BufferedWaveProvider(waveFormat);
+            buffer.AddSamples(noiseBytes, 0, noiseBytes.Length);
+            var output = new WasapiOut(AudioClientShareMode.Shared, true, 50);
+            output.Init(buffer);
+
+            var recorded = new List<byte>();
+            AutoResetEvent done = new AutoResetEvent(false);
+
+            wasapiCapture.DataAvailable += (s, e) =>
             {
-                wasapiCapture.WaveFormat = waveFormat;
+                recorded.AddRange(e.Buffer.Take(e.BytesRecorded));
+                if (recorded.Count >= waveFormat.SampleRate * 2) // 1秒録音
+                    done.Set();
+            };
 
-                // 短いクリック音（サンプル長 = 1ms）
-                float[] click = new float[waveFormat.SampleRate / 1000];
-                click[0] = 1.0f;
-                var buffer = new BufferedWaveProvider(waveFormat);
-                buffer.AddSamples(click.SelectMany(v => BitConverter.GetBytes((short)(v * short.MaxValue))).ToArray(), 0, click.Length * 2);
+            wasapiCapture.StartRecording();
+            output.Play();
+            done.WaitOne(1000);
+            wasapiCapture.StopRecording();
 
-                output.Init(buffer);
+            // 相互相関
+            short[] refSignal = new short[noise.Length];
+            Buffer.BlockCopy(noiseBytes, 0, refSignal, 0, noiseBytes.Length);
 
-                var recorded = new List<byte>();
-                AutoResetEvent done = new AutoResetEvent(false);
+            short[] micSignal = new short[recorded.Count / 2];
+            Buffer.BlockCopy(recorded.ToArray(), 0, micSignal, 0, recorded.Count);
 
-                wasapiCapture.DataAvailable += (s, e) =>
+            int lag = FindLagByCrossCorrelation(refSignal, micSignal);
+
+            output.Dispose();
+            return (double)lag / waveFormat.SampleRate;
+        }
+
+        int FindLagByCrossCorrelation(short[] refSignal, short[] micSignal)
+        {
+            int maxLag = samplingRate / 2;
+            double bestCorr = double.MinValue;
+            int bestLag = 0;
+
+            for (int lag = 0; lag < maxLag; lag++)
+            {
+                double corr = 0;
+                for (int i = 0; i < refSignal.Length; i++)
                 {
-                    recorded.AddRange(e.Buffer.Take(e.BytesRecorded));
-                    if (recorded.Count >= waveFormat.SampleRate * 2) // 1秒分録音したら
-                        done.Set();
-                };
-
-                wasapiCapture.StartRecording();
-                output.Play();
-
-                done.WaitOne(1000);
-                wasapiCapture.StopRecording();
-
-                // 録音データからピーク検出
-                short[] pcm = new short[recorded.Count / 2];
-                Buffer.BlockCopy(recorded.ToArray(), 0, pcm, 0, recorded.Count);
-
-                int peakIndex = Array.IndexOf(pcm, pcm.Max());
-                double delaySeconds = (double)peakIndex / waveFormat.SampleRate;
-
-                return delaySeconds;
+                    int j = i + lag;
+                    if (j >= micSignal.Length) break;
+                    corr += refSignal[i] * micSignal[j];
+                }
+                if (corr > bestCorr)
+                {
+                    bestCorr = corr;
+                    bestLag = lag;
+                }
             }
+            return bestLag;
         }
 
 
@@ -332,6 +365,64 @@ namespace Karaoke
         /*
          イベント
          */
+        private void Karaoke_KeyDown(object sender, KeyEventArgs e)
+        {
+            /* KeyPreview を true にしてるので、こいつが先にキー処理できる */
+            bool handled = false;
+
+            switch (e.KeyCode)
+            {
+                case Keys.Up:
+                    if (OctaveUpDown.Value < OctaveUpDown.Maximum)
+                    {
+                        OctaveUpDown.Value += 1;
+                        handled = true;
+                    }
+                    break;
+
+                case Keys.Down:
+                    if (OctaveUpDown.Value > OctaveUpDown.Minimum)
+                    {
+                        OctaveUpDown.Value -= 1;
+                        handled = true;
+                    }
+                    break;
+
+                case Keys.Left:
+                    if (latencyUpDown.Value < latencyUpDown.Maximum)
+                    {
+                        latencyUpDown.Value += 0.01m;
+                        handled = true;
+                    }
+                    break;
+
+                case Keys.Right:
+                    if (latencyUpDown.Value > latencyUpDown.Minimum)
+                    {
+                        latencyUpDown.Value -= 0.01m;
+                        handled = true;
+                    }
+                    break;
+            }
+
+            if (handled)
+            {
+                e.Handled = true;          // .NET用
+                e.SuppressKeyPress = true; // イベントをコントロールに渡さない設定
+            }
+        }
+
+        private void trackBarVolume_ValueChanged(object sender, EventArgs e)
+        {
+            if (music != null)
+                music.Volume = trackBarVolume.Value / 100.0f;
+        }
+
+        private void latencyUpDown_ValueChanged(object sender, EventArgs e)
+        {
+            latency = (double)latencyUpDown.Value;
+        }
+
         private void chartPitch_PrePaint(object sender, ChartPaintEventArgs e)
         {
             if (noteOverlayBitmap != null)
@@ -388,10 +479,47 @@ namespace Karaoke
             listBoxMusic.SelectedIndex = -1;
         }
 
+        private void buttonPageBack_Click(object sender, EventArgs e)
+        {
+            if ((currentSong != null) && (0 < currentPage))
+            {
+                currentPage--;
+                double playSec = currentSong.Pages[currentPage].StartSec;
+                music.CurrentTime = TimeSpan.FromSeconds(playSec);
+
+                trackBarMusic.Value = (int)playSec;
+
+                chartPitch.Series["Singing"].Points.Clear();
+                LoadPage(currentPage);
+                UpdateGuideOverlay();
+            }
+        }
+
+        private void buttonPageForward_Click(object sender, EventArgs e)
+        {
+            if ((currentSong != null) && (currentPage + 1 < currentSong.Pages.Count))
+            {
+                currentPage++;
+                double playSec = currentSong.Pages[currentPage].StartSec;
+                music.CurrentTime = TimeSpan.FromSeconds(playSec);
+
+                trackBarMusic.Value = (int)playSec;
+
+                chartPitch.Series["Singing"].Points.Clear();
+                LoadPage(currentPage);
+                UpdateGuideOverlay();
+            }
+        }
+
+        private CancellationTokenSource analysisToken;
+
         private void buttonPlay_Click(object sender, EventArgs e)
         {
             buttonPlay.Enabled = false;
             buttonStop.Enabled = true;
+
+            labelLyrics.Text = "（セットアップ中・・・）";
+            labelLyrics.Update();
 
             /* 変数の設定 */
             samplingRate = int.Parse(samprate.Text);
@@ -418,11 +546,9 @@ namespace Karaoke
             CreateWasapiOut();
 
             /* キャリブレーション */
-            labelLyrics.Text = "（セットアップ中・・・）";
-            labelLyrics.Update();
             latency = CalibrateLatency();
+            latencyUpDown.Value = (decimal)latency;
 
-            Thread.Sleep(500);
             labelLyrics.Text = "";
             labelLyrics.Update();
 
@@ -430,7 +556,8 @@ namespace Karaoke
             SetupWasapiCapture();
             SetupWasapiOut();
 
-            Task.Run(AnalysisLoop);
+            analysisToken = new CancellationTokenSource();
+            Task.Run(() => AnalysisLoop(analysisToken.Token));
         }
 
         private void buttonStop_Click(object sender, EventArgs e)
@@ -438,23 +565,28 @@ namespace Karaoke
             buttonPlay.Enabled = true;
             buttonStop.Enabled = false;
 
-            if (wasapiCapture != null)
-            {
-                wasapiCapture.StopRecording();
-                wasapiCapture.Dispose();
-                wasapiCapture = null;
-            }
-            if (wasapiOut != null)
-            {
-                wasapiOut.Pause();
-                wasapiOut.Dispose();
-                wasapiOut = null;
+            analysisToken?.Cancel();
+            analysisToken = null;
 
-                music?.Dispose();
-                music = null;
+            ringBuffer_waveIn = null;
+            ringBuffer_waveInIndex = 0;
+            ringBuffer_fft = null;
+            ringBuffer_fftIndex = 0;
+            while (audioQueue.TryDequeue(out _)) { }
+            while (analyzeQueue.TryDequeue(out _)) { }
 
-                timerPlay.Stop();
-            }
+            wasapiCapture?.StopRecording();
+            wasapiCapture?.Dispose();
+            wasapiCapture = null;
+
+            wasapiOut?.Pause();
+            wasapiOut?.Dispose();
+            wasapiOut = null;
+
+            music?.Dispose();
+            music = null;
+
+            timerPlay.Stop();
 
             detector.DisposeFFTWindow();
         }
@@ -515,7 +647,15 @@ namespace Karaoke
         private void LoadSong(string songName = null)
         {
             if (songName == null)
+            {
                 currentSong = null;
+
+                trackBarMusic.Minimum = 0;
+                trackBarMusic.Maximum = 0;
+                trackBarMusic.Value = 0;
+
+                labelMusicLength.Text = "00:00";
+            }
             else
             {
                 currentSong = NoteUtils.getSongData(songName);
@@ -526,7 +666,13 @@ namespace Karaoke
                 trackBarMusic.SmallChange = 1;
                 trackBarMusic.LargeChange = 10;
                 trackBarMusic.Value = 0;
+
+                int m = currentSong.length / 60;
+                int s = currentSong.length % 60;
+                labelMusicLength.Text = m.ToString("D2") + ":" + s.ToString("D2");
             }
+
+            labelCurrentTime.Text = "00:00";
 
             lastDrawnPage = -1;
             currentPage = 0;
@@ -575,18 +721,23 @@ namespace Karaoke
             labelLyrics.Text = page.lyrics;
 
             // ページ中心音 (最小+最大の平均)
+            int diff = 0;
+            int minNote = -1;
+            int maxNote = -1;
             if (page.Notes.Count > 0)
             {
-                int minNote = page.Notes.Min(n => n.MidiNote);
-                int maxNote = page.Notes.Max(n => n.MidiNote);
+                minNote = page.Notes.Min(n => n.MidiNote);
+                maxNote = page.Notes.Max(n => n.MidiNote);
                 guideBaseNote = (minNote + maxNote) / 2;
+                diff = maxNote - minNote;
             }
             else
             {
                 guideBaseNote = 60;
             }
 
-            SetupYAxis(guideBaseNote);
+            if (diff > 22) SetupYAxis(guideBaseNote, maxNote+1, minNote-1);
+            else           SetupYAxis(guideBaseNote);
 
             // 再描画を強制
             chartPitch.Invalidate();
@@ -644,6 +795,7 @@ namespace Karaoke
         /*
          UI描画
          */
+        // 再生時間の表示とトラックバーの制御
         private void timerPlay_Tick(object sender, EventArgs e)
         {
             int ct = (int)(music.CurrentTime.TotalSeconds - latency);
@@ -653,10 +805,15 @@ namespace Karaoke
                 return;
             }
             trackBarMusic.Value = ct;
+
+            int m = ct / 60;
+            int s = ct % 60;
+            labelCurrentTime.Text = m.ToString("D2") + ":" + s.ToString("D2");
         }
 
         private int lastPitchIndex = 0;
 
+        // グラフ描画関係
         private void timerUI_Tick(object sender, EventArgs e)
         {
             // マイク波形描画
@@ -681,7 +838,7 @@ namespace Karaoke
             // 再生位置を基準に
             double currentSec = 0;
             if (music != null)
-                currentSec = music.CurrentTime.TotalSeconds;
+                currentSec = music.CurrentTime.TotalSeconds - 0.05; // 一応 wasapiOut のレイテンシ 50ms を付けとく
             else
                 currentSec = (5.0 * currentPage) +
                                 ((double)pitchIndex / (samplingRate / samplingInterval));
@@ -727,9 +884,9 @@ namespace Karaoke
          ピッチ解析
          */
         // ピッチ解析用の別スレッド
-        private async Task AnalysisLoop()
+        private async Task AnalysisLoop(CancellationToken token)
         {
-            while (true)
+            while (!token.IsCancellationRequested)
             {
                 if (analyzeQueue.TryDequeue(out var data))
                 {
