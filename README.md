@@ -27,9 +27,9 @@ https://github.com/user-attachments/assets/1fa211e7-1235-4e4e-b51e-8f3d5f8a42ce
 
 https://github.com/user-attachments/assets/9795faba-0b6a-41c1-bdc1-6b55f39064cd
 
-Karaoke は、まだ未完成です。とりあえずカラオケ風にスクロールする形に変更。
-
-midiみたいな音程バーファイルを作って、NAudioで楽曲ファイルと一緒に読み込めるようにできればいいな～。
+exe と同じディレクトリに `Songs` ディレクトリを作り、`曲名.json` と `曲名.wav` など楽曲ファイルを用意する。
+曲を再生して、jsonで書いたガイドメロディ情報を表示して、頑張ってくれる。
+とりあえず一区切りとしたい。
 
 ## 各ファイルについて
 
