@@ -47,12 +47,15 @@ namespace Karaoke
 
         private StripLine playLine; // 再生位置のガイド線
 
+        private Stopwatch stopwatch = new Stopwatch();  // 曲を再生しないときの経過時間
+
         private SongData currentSong;  // 読み込んだSongData
         private int currentPage = 0;
-        private int lastDrawnPage = -1;  // 最後に描画したページ番号
         // 現ページの秒数範囲
         private double pageStartSec = 0;
         private double pageEndSec = 0;
+        // 曲未選択の場合のページ長
+        private const double CONST_PAGE_SEC = 5.0;
 
         private Bitmap noteOverlayBitmap = null;
 
@@ -213,15 +216,9 @@ namespace Karaoke
         /* 
          WaveIn, WaveOut の初期設定（buttonPlayで使用）
          */
-        private void CreateWasapiCapture(int selectedIndex)
+        private void CreateWasapiCapture()
         {
-            var enumerator = new MMDeviceEnumerator();
-            var devices = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
-
-            if (selectedIndex < 0)
-                selectedIndex = 0;
-
-            var device = devices[selectedIndex];
+            var device = (MMDevice)comboBoxDeviceIn.SelectedItem;
             wasapiCapture = new WasapiCapture(device);
             wasapiCapture.WaveFormat = new WaveFormat(samplingRate, 16, 1);
         }
@@ -234,7 +231,8 @@ namespace Karaoke
 
         private void CreateWasapiOut()
         {
-            wasapiOut = new WasapiOut(AudioClientShareMode.Shared, true, (int)(latency * 1000));
+            var device = (MMDevice)comboBoxDeviceOut.SelectedItem;
+            wasapiOut = new WasapiOut(device, AudioClientShareMode.Shared, true, (int)(latency * 1000));
         }
         private void SetupWasapiOut()
         {
@@ -340,15 +338,21 @@ namespace Karaoke
          */
         private void SetDeviceList()
         {
-            listBoxDevices.Items.Clear();
-
             var enumerator = new MMDeviceEnumerator();
             var devices = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
 
-            foreach (var dev in devices)
-            {
-                listBoxDevices.Items.Add(dev.FriendlyName);
-            }
+            // データソースに直接バインド
+            comboBoxDeviceIn.DataSource = devices.ToList();
+            comboBoxDeviceIn.DisplayMember = "FriendlyName"; // 表示用
+            comboBoxDeviceIn.ValueMember = null;
+            comboBoxDeviceIn.SelectedIndex = 0;
+
+            devices = enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active);
+
+            comboBoxDeviceOut.DataSource = devices.ToList();
+            comboBoxDeviceOut.DisplayMember = "FriendlyName"; // 表示用
+            comboBoxDeviceOut.ValueMember = null;
+            comboBoxDeviceOut.SelectedIndex = 0;
         }
 
         private void SetMusicList()
@@ -529,7 +533,7 @@ namespace Karaoke
 
             detector = new PitchDetector(samplingRate, fftSize, measuresPerSec);
             samplingInterval = samplingRate / measuresPerSec;
-            UpdatePhaseSec(5.0);
+            UpdatePhaseSec(CONST_PAGE_SEC);
 
             ringBuffer_waveIn = new double[samplingInterval];
             ringBuffer_waveInIndex = 0;
@@ -542,7 +546,7 @@ namespace Karaoke
             chartPitch.Series[0].Points.Clear();
 
             /* 入出力作成 */
-            CreateWasapiCapture(listBoxDevices.SelectedIndex);
+            CreateWasapiCapture();
             CreateWasapiOut();
 
             /* キャリブレーション */
@@ -587,6 +591,7 @@ namespace Karaoke
             music = null;
 
             timerPlay.Stop();
+            stopwatch.Stop();
 
             detector.DisposeFFTWindow();
         }
@@ -644,6 +649,10 @@ namespace Karaoke
         /*
          ガイド表示
          */
+
+        private int guideBaseNote = 60; // ページごとの中心音
+        private Dictionary<int, Bitmap> pageCache = new Dictionary<int, Bitmap>();  // ガイドページのキャッシュ
+
         private void LoadSong(string songName = null)
         {
             if (songName == null)
@@ -674,13 +683,18 @@ namespace Karaoke
 
             labelCurrentTime.Text = "00:00";
 
-            lastDrawnPage = -1;
+            // ガイドノート削除
+            noteOverlayBitmap?.Dispose();
+            noteOverlayBitmap = new Bitmap(chartPitch.Width, chartPitch.Height);
+
             currentPage = 0;
+            pageCache.Clear();
             LoadPage(currentPage);
             UpdateGuideOverlay();
-        }
 
-        private int guideBaseNote = 60; // ページごとの中心音
+            stopwatch.Restart();
+            stopwatch.Start();
+        }
 
         private void LoadPage(int pageIndex)
         {
@@ -688,10 +702,10 @@ namespace Karaoke
 
             if (currentSong == null)
             {
-                // 5秒固定ページ
-                pageStartSec = pageIndex * 5.0;
-                pageEndSec = (pageIndex + 1) * 5.0;
-                UpdatePhaseSec(5.0);
+                // 固定ページ
+                pageStartSec = pageIndex * CONST_PAGE_SEC;
+                pageEndSec = (pageIndex + 1) * CONST_PAGE_SEC;
+                UpdatePhaseSec(CONST_PAGE_SEC);
                 pitchIndex = 0;
 
                 chartPitch.ChartAreas[0].AxisX.Maximum = 5;
@@ -754,16 +768,62 @@ namespace Karaoke
             if (currentSong == null) return;
             if (currentPage < 0 || currentPage >= currentSong.Pages.Count) return;
 
-            if (currentPage == lastDrawnPage) return;
-            lastDrawnPage = currentPage;
+            // すでにキャッシュがあればそれを使う
+            if (pageCache.TryGetValue(currentPage, out var cached))
+            {
+                noteOverlayBitmap?.Dispose();
+                noteOverlayBitmap = (Bitmap)cached.Clone();
+                return;
+            }
 
-            var page = currentSong.Pages[currentPage];
-            var ca = chartPitch.ChartAreas[0];
+            // なければ新規生成
+            var bmp = RenderPageToBitmap(currentPage);
+
+            // キャッシュに保存
+            pageCache[currentPage] = (Bitmap)bmp.Clone();
 
             noteOverlayBitmap?.Dispose();
-            noteOverlayBitmap = new Bitmap(chartPitch.Width, chartPitch.Height);
+            noteOverlayBitmap = bmp;
+        }
 
-            using (var g = Graphics.FromImage(noteOverlayBitmap))
+        private Bitmap RenderPageToBitmap(int pageIndex)
+        {
+            var page = currentSong.Pages[pageIndex];
+            var ca = chartPitch.ChartAreas[0];
+
+            Bitmap bmp = new Bitmap(chartPitch.Width, chartPitch.Height);
+
+            // (float)ca.AxisX.ValueToPixelPosition(); は重い。
+            // 手計算で求める。必要な値の計算
+            double pageSec = page.EndSec - page.StartSec;
+            float chartWidth = chartPitch.Width;
+            float chartHeight = chartPitch.Height;
+
+            var pos = ca.Position;
+            var inner = ca.InnerPlotPosition;
+
+            // ChartArea（外枠）
+            float areaX = chartWidth * pos.X / 100f;
+            float areaY = chartHeight * pos.Y / 100f;
+            float areaW = chartWidth * pos.Width / 100f;
+            float areaH = chartHeight * pos.Height / 100f;
+
+            // Plot領域（実際の描画領域）
+            float plotX = areaX + areaW * inner.X / 100f;
+            float plotY = areaY + areaH * inner.Y / 100f;
+            float plotW = areaW * inner.Width / 100f;
+            float plotH = areaH * inner.Height / 100f;
+
+            // X軸
+            double xScale = plotW / pageSec;
+
+            // Y軸
+            double yMin = ca.AxisY.Minimum;
+            double yMax = ca.AxisY.Maximum;
+            double yScale = plotH / (yMax - yMin);
+
+
+            using (var g = Graphics.FromImage(bmp))
             {
                 foreach (var note in page.Notes)
                 {
@@ -771,24 +831,25 @@ namespace Karaoke
                     double x2 = x1 + note.Duration;
                     double y = note.MidiNote;
 
-                    float px1 = (float)ca.AxisX.ValueToPixelPosition(x1);
-                    float px2 = (float)ca.AxisX.ValueToPixelPosition(x2);
-                    float pyTop = (float)ca.AxisY.ValueToPixelPosition(y + 0.5);
-                    float pyBottom = (float)ca.AxisY.ValueToPixelPosition(y - 0.5);
+                    float px1 = plotX + (float)(x1 * xScale);
+                    float px2 = plotX + (float)(x2 * xScale);
+
+                    float pyTop = plotY + (float)((yMax - (y + 0.5)) * yScale);
+                    float pyBottom = plotY + (float)((yMax - (y - 0.5)) * yScale);
 
                     RectangleF rect = new RectangleF(px1, pyTop, px2 - px1, pyBottom - pyTop);
 
                     Color baseColor = ColorTranslator.FromHtml(note.Color);
-                    Color fillColor = Color.FromArgb(128, baseColor);
-                    Color borderColor = ControlPaint.Dark(baseColor);
-                    using (var brush = new SolidBrush(fillColor))
-                    using (var pen = new Pen(borderColor, 1))
+                    using (var brush = new SolidBrush(Color.FromArgb(128, baseColor)))
+                    using (var pen = new Pen(ControlPaint.Dark(baseColor), 1))
                     {
                         g.FillRectangle(brush, rect);
                         g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
                     }
                 }
             }
+
+            return bmp;
         }
 
 
@@ -811,64 +872,31 @@ namespace Karaoke
             labelCurrentTime.Text = m.ToString("D2") + ":" + s.ToString("D2");
         }
 
-        private int lastPitchIndex = 0;
+
 
         // グラフ描画関係
+        ConcurrentQueue<double[]> drawQueue = new ConcurrentQueue<double[]>();
+        ConcurrentQueue<PitchResult> pitchQueue = new ConcurrentQueue<PitchResult>();
+
+        private double freq = 0.0;
+
         private void timerUI_Tick(object sender, EventArgs e)
         {
-            // マイク波形描画
-            while (audioQueue.TryDequeue(out var waveform))
-            {
-                double[] fixedWaveform = new double[samplingInterval];
-                // 必要に応じて切り捨て or ゼロ詰め
-                int copyLen = Math.Min(waveform.Length, samplingInterval);
-                Array.Copy(waveform, fixedWaveform, copyLen);
+            // 再生位置を基準に
+            double currentSec = GetCurrentTime();
 
-                var seriesWave = chartInputWave.Series[0];
-                for (int i = 0; i < samplingInterval; i++)
-                    seriesWave.Points[i].SetValueY(fixedWaveform[i]);
-                chartInputWave.Invalidate();
+            HandlePageTransition(currentSec);
+
+            // 音声波形の表示（最新1件だけ）
+            if (drawQueue.TryDequeue(out var waveform))
+            {
+                UpdateWaveform(waveform);
             }
 
-            // 最新ピッチが解析されたら描画
-            if (pitchIndex == lastPitchIndex) return;
-            lastPitchIndex = pitchIndex;
-
-
-            // 再生位置を基準に
-            double currentSec = 0;
-            if (music != null)
-                currentSec = music.CurrentTime.TotalSeconds - 0.05; // 一応 wasapiOut のレイテンシ 50ms を付けとく
-            else
-                currentSec = (5.0 * currentPage) +
-                                ((double)pitchIndex / (samplingRate / samplingInterval));
-
-            // ページ遷移判定
-            if (currentSec >= pageEndSec)
-                {
-                    currentPage++;
-                    if ((currentSong == null) || (currentPage < currentSong.Pages.Count))
-                    {
-                        chartPitch.Series["Singing"].Points.Clear();
-                        LoadPage(currentPage);
-                        UpdateGuideOverlay();
-                    }
-                    else
-                    {
-                        // 曲の終了なのでWaveOutを終わらせる（Stopボタンの挙動を呼ぶ）
-                        buttonStop.PerformClick();
-                        return;
-                    }
-                }
-
             // ピッチ折れ線描画
-            var seriesPitch = chartPitch.Series["Singing"];
-            // 差分だけ追加する
-            for (int i = seriesPitch.Points.Count; i < pitchIndex; i++)
+            while (pitchQueue.TryDequeue(out var p))
             {
-                double val = pitchArray[i] + ((int)OctaveUpDown.Value * 12);
-                double relTime = (double)i / (samplingRate / samplingInterval) - latency; // ページ内時間
-                seriesPitch.Points.AddXY(relTime, val >= 0 ? val : double.NaN);
+                AddPitch(p);
             }
 
             // 再生ラインの位置
@@ -877,32 +905,139 @@ namespace Karaoke
             labelFreq.Text = freq.ToString();
         }
 
-        private double freq = 0;
+
+        private void HandlePageTransition(double currentSec)
+        {
+            if (music != null && currentSong != null)
+            {
+                // 曲再生時
+
+                // ページ遷移判定
+                // while で遅れた分を一気にページ遷移する
+                while (currentPage < currentSong.Pages.Count &&
+                       currentSec >= currentSong.Pages[currentPage].EndSec)
+                {
+                    currentPage++;
+
+                    if (currentPage < currentSong.Pages.Count)
+                    {
+                        chartPitch.Series["Singing"].Points.Clear();
+
+                        LoadPage(currentPage);
+                        UpdateGuideOverlay();
+
+                        pageStartSec = currentSong.Pages[currentPage].StartSec;
+                        pageEndSec = currentSong.Pages[currentPage].EndSec;
+                    }
+                    else
+                    {
+                        // 曲の終了なのでWaveOutを終わらせる（Stopボタンの挙動を呼ぶ）
+                        buttonStop.PerformClick();
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                // 曲無しの固定時間版
+                int newPage = (int)(currentSec / CONST_PAGE_SEC);
+
+                if (newPage == currentPage) return;
+
+                currentPage = newPage;
+
+                if (currentSong == null || currentPage < currentSong.Pages.Count)
+                {
+                    chartPitch.Series["Singing"].Points.Clear();
+
+                    LoadPage(currentPage);
+                    UpdateGuideOverlay();
+
+                    pageStartSec = currentPage * CONST_PAGE_SEC;
+                    pageEndSec = pageStartSec + CONST_PAGE_SEC;
+                }
+                else
+                {
+                    // 曲の終了なのでWaveOutを終わらせる（Stopボタンの挙動を呼ぶ）
+                    buttonStop.PerformClick();
+                }
+            }
+        }
+
+
+        private void UpdateWaveform(double[] data)
+        {
+            var series = chartInputWave.Series[0];
+
+            for (int i = 0; i < data.Length; i++)
+                series.Points[i].SetValueY(data[i]);
+
+            chartInputWave.Invalidate();
+        }
+
+
+        private void AddPitch(PitchResult p)
+        {
+            var series = chartPitch.Series["Singing"];
+
+            double relTime = p.TimeSec - pageStartSec;
+
+            double hosei_pitch = p.Pitch + ((int)OctaveUpDown.Value * 12);
+
+            series.Points.AddXY(relTime, p.Pitch >= 0 ? hosei_pitch : double.NaN);
+        }
+
+        private double GetCurrentTime()
+        {
+            if (music != null)
+                return music.CurrentTime.TotalSeconds;
+
+            return stopwatch.Elapsed.TotalSeconds;
+        }
 
 
         /*
          ピッチ解析
          */
+        class PitchResult
+        {
+            public double TimeSec;
+            public double Pitch;
+        }
+
         // ピッチ解析用の別スレッド
         private async Task AnalysisLoop(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
+                if (audioQueue.TryDequeue(out var audio)) {
+                    // 波形整形
+                    double[] fixedWaveform = new double[samplingInterval];
+                    int copyLen = Math.Min(audio.Length, samplingInterval);
+                    Array.Copy(audio, fixedWaveform, copyLen);
+
+                    drawQueue.Enqueue(fixedWaveform);
+                }
+
                 if (analyzeQueue.TryDequeue(out var data))
                 {
                     var pitch = DetectPitch(data);
-                    if (pitchIndex >= pitchArray.Length)
-                        pitchIndex = 0;
 
-                    pitchArray[pitchIndex] = pitch;
-                    pitchIndex++;
+                    double timeSec = GetCurrentTime() - latency - (samplingInterval / (double)samplingRate / 2.0);
+                    // ピッチを時間付き情報にする
+                    pitchQueue.Enqueue(new PitchResult
+                    {
+                        TimeSec = timeSec,
+                        Pitch = pitch
+                    });
                 }
                 else
                 {
-                    await Task.Delay(1);
+                    await Task.Delay(5);
                 }
             }
         }
+
 
         private double DetectPitch(double[] x)
         {
@@ -933,7 +1068,8 @@ namespace Karaoke
                     //frequency = detector.FourierTransform(x, 0);
             }
 
-            freq = frequency;
+            // 競合しないようにロック
+            Interlocked.Exchange(ref freq, frequency);
 
             // 無音判定。85Hz ~ 1000Hz を有効範囲とする。
             if (frequency < 85 || frequency > VALID_MAX_FREQ)

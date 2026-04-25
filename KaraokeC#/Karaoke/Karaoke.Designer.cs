@@ -29,12 +29,12 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea7 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-            System.Windows.Forms.DataVisualization.Charting.Legend legend7 = new System.Windows.Forms.DataVisualization.Charting.Legend();
-            System.Windows.Forms.DataVisualization.Charting.Series series7 = new System.Windows.Forms.DataVisualization.Charting.Series();
-            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea8 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-            System.Windows.Forms.DataVisualization.Charting.Legend legend8 = new System.Windows.Forms.DataVisualization.Charting.Legend();
-            System.Windows.Forms.DataVisualization.Charting.Series series8 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea1 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend1 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series1 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea2 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend2 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series2 = new System.Windows.Forms.DataVisualization.Charting.Series();
             this.chartInputWave = new System.Windows.Forms.DataVisualization.Charting.Chart();
             this.chartPitch = new System.Windows.Forms.DataVisualization.Charting.Chart();
             this.buttonPlay = new System.Windows.Forms.Button();
@@ -47,7 +47,6 @@
             this.label6 = new System.Windows.Forms.Label();
             this.energyUpDown = new System.Windows.Forms.NumericUpDown();
             this.label3 = new System.Windows.Forms.Label();
-            this.listBoxDevices = new System.Windows.Forms.ListBox();
             this.buttonDeviceUpdate = new System.Windows.Forms.Button();
             this.timerUI = new System.Windows.Forms.Timer(this.components);
             this.label1 = new System.Windows.Forms.Label();
@@ -70,6 +69,8 @@
             this.latencyUpDown = new System.Windows.Forms.NumericUpDown();
             this.buttonPageBack = new System.Windows.Forms.Button();
             this.buttonPageForward = new System.Windows.Forms.Button();
+            this.comboBoxDeviceOut = new System.Windows.Forms.ComboBox();
+            this.comboBoxDeviceIn = new System.Windows.Forms.ComboBox();
             ((System.ComponentModel.ISupportInitialize)(this.chartInputWave)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.chartPitch)).BeginInit();
             this.panel1.SuspendLayout();
@@ -83,16 +84,16 @@
             // 
             // chartInputWave
             // 
-            chartArea7.Name = "ChartArea1";
-            this.chartInputWave.ChartAreas.Add(chartArea7);
-            legend7.Name = "Legend1";
-            this.chartInputWave.Legends.Add(legend7);
+            chartArea1.Name = "ChartArea1";
+            this.chartInputWave.ChartAreas.Add(chartArea1);
+            legend1.Name = "Legend1";
+            this.chartInputWave.Legends.Add(legend1);
             this.chartInputWave.Location = new System.Drawing.Point(562, 12);
             this.chartInputWave.Name = "chartInputWave";
-            series7.ChartArea = "ChartArea1";
-            series7.Legend = "Legend1";
-            series7.Name = "Series1";
-            this.chartInputWave.Series.Add(series7);
+            series1.ChartArea = "ChartArea1";
+            series1.Legend = "Legend1";
+            series1.Name = "Series1";
+            this.chartInputWave.Series.Add(series1);
             this.chartInputWave.Size = new System.Drawing.Size(500, 375);
             this.chartInputWave.TabIndex = 0;
             this.chartInputWave.TabStop = false;
@@ -100,16 +101,16 @@
             // 
             // chartPitch
             // 
-            chartArea8.Name = "ChartArea1";
-            this.chartPitch.ChartAreas.Add(chartArea8);
-            legend8.Name = "Legend1";
-            this.chartPitch.Legends.Add(legend8);
+            chartArea2.Name = "ChartArea1";
+            this.chartPitch.ChartAreas.Add(chartArea2);
+            legend2.Name = "Legend1";
+            this.chartPitch.Legends.Add(legend2);
             this.chartPitch.Location = new System.Drawing.Point(12, 517);
             this.chartPitch.Name = "chartPitch";
-            series8.ChartArea = "ChartArea1";
-            series8.Legend = "Legend1";
-            series8.Name = "Series1";
-            this.chartPitch.Series.Add(series8);
+            series2.ChartArea = "ChartArea1";
+            series2.Legend = "Legend1";
+            series2.Name = "Series1";
+            this.chartPitch.Series.Add(series2);
             this.chartPitch.Size = new System.Drawing.Size(1050, 500);
             this.chartPitch.TabIndex = 2;
             this.chartPitch.TabStop = false;
@@ -230,15 +231,6 @@
             this.label3.Size = new System.Drawing.Size(368, 24);
             this.label3.TabIndex = 7;
             this.label3.Text = "energy under limit (mic sensitivity) : ";
-            // 
-            // listBoxDevices
-            // 
-            this.listBoxDevices.FormattingEnabled = true;
-            this.listBoxDevices.ItemHeight = 24;
-            this.listBoxDevices.Location = new System.Drawing.Point(12, 62);
-            this.listBoxDevices.Name = "listBoxDevices";
-            this.listBoxDevices.Size = new System.Drawing.Size(272, 76);
-            this.listBoxDevices.TabIndex = 8;
             // 
             // buttonDeviceUpdate
             // 
@@ -390,7 +382,7 @@
             this.trackBarVolume.Size = new System.Drawing.Size(191, 90);
             this.trackBarVolume.TabIndex = 10;
             this.trackBarVolume.TickFrequency = 10;
-            this.trackBarVolume.Value = 100;
+            this.trackBarVolume.Value = 50;
             this.trackBarVolume.ValueChanged += new System.EventHandler(this.trackBarVolume_ValueChanged);
             // 
             // label5
@@ -473,11 +465,31 @@
             this.buttonPageForward.UseVisualStyleBackColor = true;
             this.buttonPageForward.Click += new System.EventHandler(this.buttonPageForward_Click);
             // 
+            // comboBoxDeviceOut
+            // 
+            this.comboBoxDeviceOut.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBoxDeviceOut.FormattingEnabled = true;
+            this.comboBoxDeviceOut.Location = new System.Drawing.Point(12, 106);
+            this.comboBoxDeviceOut.Name = "comboBoxDeviceOut";
+            this.comboBoxDeviceOut.Size = new System.Drawing.Size(272, 32);
+            this.comboBoxDeviceOut.TabIndex = 28;
+            // 
+            // comboBoxDeviceIn
+            // 
+            this.comboBoxDeviceIn.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBoxDeviceIn.FormattingEnabled = true;
+            this.comboBoxDeviceIn.Location = new System.Drawing.Point(12, 62);
+            this.comboBoxDeviceIn.Name = "comboBoxDeviceIn";
+            this.comboBoxDeviceIn.Size = new System.Drawing.Size(272, 32);
+            this.comboBoxDeviceIn.TabIndex = 29;
+            // 
             // Karaoke
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(192F, 192F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.ClientSize = new System.Drawing.Size(1074, 1029);
+            this.Controls.Add(this.comboBoxDeviceIn);
+            this.Controls.Add(this.comboBoxDeviceOut);
             this.Controls.Add(this.buttonPageForward);
             this.Controls.Add(this.buttonPageBack);
             this.Controls.Add(this.latencyUpDown);
@@ -499,7 +511,6 @@
             this.Controls.Add(this.mps);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.buttonDeviceUpdate);
-            this.Controls.Add(this.listBoxDevices);
             this.Controls.Add(this.panel1);
             this.Controls.Add(this.buttonStop);
             this.Controls.Add(this.buttonPlay);
@@ -536,7 +547,6 @@
         private System.Windows.Forms.RadioButton isFourier;
         private System.Windows.Forms.RadioButton isYIN;
         private System.Windows.Forms.Panel panel1;
-        private System.Windows.Forms.ListBox listBoxDevices;
         private System.Windows.Forms.Button buttonDeviceUpdate;
         private System.Windows.Forms.Timer timerUI;
         private System.Windows.Forms.Label label1;
@@ -564,6 +574,8 @@
         private System.Windows.Forms.NumericUpDown latencyUpDown;
         private System.Windows.Forms.Button buttonPageBack;
         private System.Windows.Forms.Button buttonPageForward;
+        private System.Windows.Forms.ComboBox comboBoxDeviceOut;
+        private System.Windows.Forms.ComboBox comboBoxDeviceIn;
     }
 }
 
