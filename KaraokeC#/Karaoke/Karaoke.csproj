@@ -101,9 +101,6 @@
     </Compile>
     <Compile Include="NoteUtils.cs" />
     <Compile Include="PitchDetector.cs" />
-    <Compile Include="PitchView.cs">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Karaoke.resx">
