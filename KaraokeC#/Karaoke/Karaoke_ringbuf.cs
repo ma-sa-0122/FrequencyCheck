@@ -345,7 +345,7 @@ namespace Karaoke
 
             SetupWaveOut();
 
-            Task.Run(AnalysisLoop);
+            // Analysis moved to AnalysisService (in Karaoke.cs)
         }
 
         private void buttonStop_Click(object sender, EventArgs e)
@@ -619,68 +619,5 @@ namespace Karaoke
         /*
          ピッチ解析
          */
-        // ピッチ解析用の別スレッド
-        private async Task AnalysisLoop()
-        {
-            double[] frame = new double[fftSize];
-            int hopCounter = 0;
-
-            while (true)
-            {
-                await Task.Delay(5); // CPU負荷を下げつつループ
-
-                hopCounter += hopSize;
-                if (hopCounter < hopSize) continue;
-                hopCounter = 0;
-
-                // 最新 fftSize サンプルをコピー
-                lock (ringLock)
-                {
-                    for (int i = 0; i < fftSize; i++)
-                    {
-                        int index = (ringPos - fftSize + i + ringBuffer.Length) % ringBuffer.Length;
-                        frame[i] = ringBuffer[index];
-                    }
-                }
-
-                var pitch = DetectPitch(frame);
-                if (pitchIndex >= pitchArray.Length)
-                    pitchIndex = 0;
-
-                pitchArray[pitchIndex] = pitch;
-                pitchIndex++;
-            }
-        }
-
-        private double DetectPitch(double[] x)
-        {
-            double energy = 0.0;
-            for (int i = 0; i < x.Length; i++)
-                energy += x[i] * x[i];
-
-            if (energy < minEnergy)
-                return -1;
-
-            double frequency = 0;
-            if (isFourier.Checked && isHPS.Checked)
-                frequency = detector.FourierTransformWithHPS(x);
-            else if (isFourier.Checked)
-                frequency = detector.FourierTransform(x);
-            else
-                frequency = detector.YIN(x);
-
-            freq = frequency;
-
-            // 無音判定。85Hz ~ 1000Hz を有効範囲とする。
-            if (frequency < 85 || frequency > VALID_MAX_FREQ)
-                return -1;
-
-            // ピッチへの変換
-            double midiNote = 69 + 12 * Math.Log(frequency / 440.0, 2);
-            return midiNote;
-
-            //double pitchClass = midiNote % 12;
-            //return pitchClass;
-        }
     }
 }

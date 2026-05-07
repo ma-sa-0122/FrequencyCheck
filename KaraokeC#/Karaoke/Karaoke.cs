@@ -35,13 +35,19 @@ namespace Karaoke
         const int VALID_MAX_FREQ = 1000;
         private double minEnergy = 1e-4;
 
-        private WasapiCapture wasapiCapture;
-        private WasapiOut wasapiOut;
         private AudioFileReader music;
+        private AudioInputService audioIn;
+        private AudioOutputService audioOut;
+        private AnalysisService analysisService;
 
-        private double latency = 0;
+        private volatile float latency = 0f;
+        // Live flags copied from UI on UI thread and read atomically by analysis thread
+        private volatile bool useFourierFlag = false;
+        private volatile bool useHPSFlag = false;
+        private PlaybackController playbackController;
+        private SettingsController settingsController;
 
-        // wasapiCapture はバッファサイズが不安定なので、固定長のリングバッファを用意
+        // マイク入力はバッファサイズが不安定なので、固定長のリングバッファを用意
         double[] ringBuffer_waveIn;
         int ringBuffer_waveInIndex;
 
@@ -77,6 +83,17 @@ namespace Karaoke
             SetupCharts();
 
             timerUI.Start();
+
+            // Playback controller: delegates call into this form's methods
+            playbackController = new PlaybackController(StartPlayback, StopPlayback, PageForwardPlayback, PageBackPlayback);
+
+            // Settings controller keeps last UI values (updated on UI tick)
+            settingsController = new SettingsController();
+
+            // Wire immediate UI changes to settings snapshot to avoid races (selection changes)
+            comboBoxDeviceIn.SelectedIndexChanged += (s, e) => settingsController?.SetSelectedDevices(comboBoxDeviceIn.SelectedItem as MMDevice, settingsController?.SelectedOutputDevice);
+            comboBoxDeviceOut.SelectedIndexChanged += (s, e) => settingsController?.SetSelectedDevices(settingsController?.SelectedInputDevice, comboBoxDeviceOut.SelectedItem as MMDevice);
+            listBoxMusic.SelectedIndexChanged += (s, e) => settingsController?.UpdateFromUI(samprate.Text, fftSizeUpDown.Text, (int)mps.Value, (double)energyUpDown.Value, trackBarVolume.Value, comboBoxDeviceIn.SelectedItem, comboBoxDeviceOut.SelectedItem, latencyUpDown.Value, listBoxMusic.SelectedItem);
         }
 
         private void Karaoke_Shown(object sender, EventArgs e)
@@ -160,6 +177,8 @@ namespace Karaoke
             area.AxisY.Maximum = 72;  // C5くらい
             area.AxisY.Interval = 1;
 
+            area.AxisX.LabelStyle.Format = "0.####";
+
             SetupYAxis(60); // C4を中心にラベルを張る
 
             // 再生位置を示す赤線
@@ -216,120 +235,52 @@ namespace Karaoke
         /* 
          WaveIn, WaveOut の初期設定（buttonPlayで使用）
          */
-        private void CreateWasapiCapture()
-        {
-            var device = (MMDevice)comboBoxDeviceIn.SelectedItem;
-            wasapiCapture = new WasapiCapture(device);
-            wasapiCapture.WaveFormat = new WaveFormat(samplingRate, 16, 1);
-        }
-        private async void SetupWasapiCapture()
-        {
-            await Task.Delay(500);
-            wasapiCapture.DataAvailable += WaveIn_DataAvailable;
-            wasapiCapture.StartRecording();
-        }
 
-        private void CreateWasapiOut()
+        private void SetupAudioOut(string songName = null, int volume = 100)
         {
-            var device = (MMDevice)comboBoxDeviceOut.SelectedItem;
-            wasapiOut = new WasapiOut(device, AudioClientShareMode.Shared, true, (int)(latency * 1000));
-        }
-        private void SetupWasapiOut()
-        {
-            if (listBoxMusic.SelectedIndex < 0)
-                LoadSong();
-            else
+            // Use provided songName/volume, fallback to UI if null
+            string effectiveSongName = songName ?? (listBoxMusic.SelectedItem as string);
+            int effectiveVolume = volume;
+            if (songName == null && listBoxMusic.SelectedIndex < 0)
             {
-                /* WaveOut で楽曲再生 */
-                string songName = listBoxMusic.SelectedItem as string;
+                LoadSong();
+                return;
+            }
+            if (songName == null)
+            {
+                effectiveVolume = trackBarVolume.Value;
+            }
+            // Dispose previous music if any to ensure new selection takes effect immediately
+            try { music?.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Error disposing previous music: {ex}"); }
+            music = null;
 
-                music = new AudioFileReader(NoteUtils.changeFIleNameToPath(songName));
-                music.Volume = trackBarVolume.Value / 100.0f;
+            try
+            {
+                music = new AudioFileReader(NoteUtils.changeFIleNameToPath(effectiveSongName));
+                music.Volume = effectiveVolume / 100.0f;
 
-                wasapiOut.Init(music);
+                if (audioOut == null)
+                {
+                    MessageBox.Show("Output device is not initialized. Playback aborted.", "Device Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
 
-                LoadSong(songName);
-
-                wasapiOut.Play();
+                audioOut.Init(music);
+                LoadSong(effectiveSongName);
+                audioOut.Play();
                 timerPlay.Start();
             }
-        }
-
-        /*
-         遅延評価
-         */
-        double CalibrateLatency()
-        {
-            var waveFormat = new WaveFormat(samplingRate, 1);
-
-            // 短いホワイトノイズ (10ms)
-            int len = waveFormat.SampleRate / 100;
-            float[] noise = new float[len];
-            Random rnd = new Random();
-            for (int i = 0; i < len; i++) noise[i] = (float)(rnd.NextDouble() * 2 - 1);
-
-            // PCM化
-            byte[] noiseBytes = noise.SelectMany(
-                v => BitConverter.GetBytes((short)(v * short.MaxValue))
-            ).ToArray();
-
-            // 再生
-            var buffer = new BufferedWaveProvider(waveFormat);
-            buffer.AddSamples(noiseBytes, 0, noiseBytes.Length);
-            var output = new WasapiOut(AudioClientShareMode.Shared, true, 50);
-            output.Init(buffer);
-
-            var recorded = new List<byte>();
-            AutoResetEvent done = new AutoResetEvent(false);
-
-            wasapiCapture.DataAvailable += (s, e) =>
+            catch (Exception ex)
             {
-                recorded.AddRange(e.Buffer.Take(e.BytesRecorded));
-                if (recorded.Count >= waveFormat.SampleRate * 2) // 1秒録音
-                    done.Set();
-            };
-
-            wasapiCapture.StartRecording();
-            output.Play();
-            done.WaitOne(1000);
-            wasapiCapture.StopRecording();
-
-            // 相互相関
-            short[] refSignal = new short[noise.Length];
-            Buffer.BlockCopy(noiseBytes, 0, refSignal, 0, noiseBytes.Length);
-
-            short[] micSignal = new short[recorded.Count / 2];
-            Buffer.BlockCopy(recorded.ToArray(), 0, micSignal, 0, recorded.Count);
-
-            int lag = FindLagByCrossCorrelation(refSignal, micSignal);
-
-            output.Dispose();
-            return (double)lag / waveFormat.SampleRate;
-        }
-
-        int FindLagByCrossCorrelation(short[] refSignal, short[] micSignal)
-        {
-            int maxLag = samplingRate / 2;
-            double bestCorr = double.MinValue;
-            int bestLag = 0;
-
-            for (int lag = 0; lag < maxLag; lag++)
-            {
-                double corr = 0;
-                for (int i = 0; i < refSignal.Length; i++)
-                {
-                    int j = i + lag;
-                    if (j >= micSignal.Length) break;
-                    corr += refSignal[i] * micSignal[j];
-                }
-                if (corr > bestCorr)
-                {
-                    bestCorr = corr;
-                    bestLag = lag;
-                }
+                Debug.WriteLine($"Error in SetupAudioOut: {ex}");
+                MessageBox.Show($"Failed to start playback: {ex.Message}", "Playback Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                try { music?.Dispose(); } catch { }
+                music = null;
             }
-            return bestLag;
         }
+
+
+        
 
 
 
@@ -353,6 +304,9 @@ namespace Karaoke
             comboBoxDeviceOut.DisplayMember = "FriendlyName"; // 表示用
             comboBoxDeviceOut.ValueMember = null;
             comboBoxDeviceOut.SelectedIndex = 0;
+
+            // Clear any cached device references in settings controller after re-enumeration
+            settingsController?.ClearDeviceSelection();
         }
 
         private void SetMusicList()
@@ -424,7 +378,7 @@ namespace Karaoke
 
         private void latencyUpDown_ValueChanged(object sender, EventArgs e)
         {
-            latency = (double)latencyUpDown.Value;
+            latency = (float)latencyUpDown.Value;
         }
 
         private void chartPitch_PrePaint(object sender, ChartPaintEventArgs e)
@@ -478,6 +432,294 @@ namespace Karaoke
             SetMusicList();
         }
 
+        // Controller-invoked methods (extracted from original handlers)
+        private readonly object playbackLock = new object();
+
+        private void StartPlayback()
+        {
+            lock (playbackLock)
+            {
+                // If a previous playback wasn't fully stopped, ensure cleanup first (internal, without locking)
+                if (analysisToken != null)
+                {
+                    try { StopPlaybackInternal(); } catch (Exception ex) { Debug.WriteLine($"Error stopping previous playback: {ex}"); }
+                }
+
+                buttonPlay.Enabled = false;
+                buttonStop.Enabled = true;
+
+                labelLyrics.Text = "（セットアップ中・・・）";
+                labelLyrics.Update();
+
+                // Refresh settings snapshot from UI immediately to avoid race with recent UI changes
+                settingsController?.UpdateFromUI(samprate.Text, fftSizeUpDown.Text, (int)mps.Value, (double)energyUpDown.Value,
+                                                trackBarVolume.Value, comboBoxDeviceIn.SelectedItem, comboBoxDeviceOut.SelectedItem, latencyUpDown.Value, listBoxMusic.SelectedItem);
+
+                // Prefer current UI selection (combo boxes / list) to avoid stale SettingsController objects from prior device lists.
+                int effectiveSamplingRate = settingsController?.SamplingRate ?? (int.TryParse(samprate.Text, out var sr) ? sr : 16384);
+                int effectiveFFTSize = settingsController?.FFTSize ?? (int.TryParse(fftSizeUpDown.Text, out var fs) ? fs : 2048);
+                int effectiveMeasuresPerSec = settingsController?.MeasuresPerSec ?? (int)mps.Value;
+                double effectiveMinEnergy = settingsController?.MinEnergy ?? (double)energyUpDown.Value;
+                int effectiveVolume = settingsController?.Volume ?? trackBarVolume.Value;
+                var effectiveInputDevice = (comboBoxDeviceIn.SelectedItem as MMDevice) ?? settingsController?.SelectedInputDevice;
+                var effectiveOutputDevice = (comboBoxDeviceOut.SelectedItem as MMDevice) ?? settingsController?.SelectedOutputDevice;
+                string effectiveSongName = (listBoxMusic.SelectedItem as string) ?? settingsController?.SelectedSongName;
+
+                samplingRate = effectiveSamplingRate;
+                fftSize = effectiveFFTSize;
+                measuresPerSec = effectiveMeasuresPerSec;
+                minEnergy = effectiveMinEnergy;
+
+                detector = new PitchDetector(samplingRate, fftSize, measuresPerSec);
+                samplingInterval = samplingRate / measuresPerSec;
+                UpdatePhaseSec(CONST_PAGE_SEC);
+
+                ringBuffer_waveIn = new double[samplingInterval];
+                ringBuffer_waveInIndex = 0;
+
+                ringBuffer_fft = new double[samplingInterval * 4];
+                ringBuffer_fftIndex = 0;
+
+                /* チャートの再初期化 */
+                Reset_chartInputWave(samplingInterval);
+                chartPitch.Series[0].Points.Clear();
+
+                /* 入出力作成 */
+                var enumerator = new MMDeviceEnumerator();
+                try
+                {
+                    if (effectiveInputDevice == null)
+                        effectiveInputDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Console);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to get default input device: {ex}");
+                    effectiveInputDevice = null;
+                }
+
+                try
+                {
+                    if (effectiveOutputDevice == null)
+                        effectiveOutputDevice = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Console);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to get default output device: {ex}");
+                    effectiveOutputDevice = null;
+                }
+
+                try
+                {
+                    if (effectiveInputDevice != null)
+                    {
+                        audioIn = new AudioInputService(effectiveInputDevice, samplingRate);
+                        audioIn.DataAvailable += WaveIn_DataAvailable;
+                        audioIn.Start();
+                    }
+                    else
+                    {
+                        Debug.WriteLine("No input device available, skipping audioIn initialization.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error initializing audioIn: {ex}");
+                    MessageBox.Show("Failed to initialize input device. Check device availability.", "Device Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    StopPlayback();
+                    return;
+                }
+
+                /* キャリブレーション */
+                latency = (float)LatencyCalibrator.CalibrateLatency(samplingRate);
+                latencyUpDown.Value = (decimal)latency;
+                if (settingsController != null) settingsController.Latency = latency;
+
+                try
+                {
+                    if (effectiveOutputDevice == null)
+                    {
+                        Debug.WriteLine("No output device available.");
+                        MessageBox.Show("No output device available. Playback aborted.", "Device Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        StopPlayback();
+                        return;
+                    }
+
+                    audioOut = new AudioOutputService(effectiveOutputDevice, latency);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error initializing audioOut: {ex}");
+                    MessageBox.Show("Failed to initialize output device. Check device availability.", "Device Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    StopPlayback();
+                    return;
+                }
+
+                labelLyrics.Text = "";
+                labelLyrics.Update();
+
+                timerUI.Start();
+
+                /* 本番用に設定 */
+                // audioIn and audioOut are initialized above and ready to use
+                SetupAudioOut(effectiveSongName, effectiveVolume);
+
+                analysisToken = new CancellationTokenSource();
+                analysisService = new AnalysisService(detector, samplingInterval, samplingRate, minEnergy);
+                // Run analysis in a guarded task so exceptions are observed and cancellation is waited on during stop
+                analysisTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await analysisService.Run(analyzeQueue, audioQueue, drawQueue, pitchQueue, GetCurrentTime, () => (double)latency, () => useFourierFlag, () => useHPSFlag, analysisToken.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Debug.WriteLine("AnalysisService cancelled");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"AnalysisService error: {ex}");
+                        MessageBox.Show($"Analysis service error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                });
+            }
+        }
+
+        private void StopPlaybackInternal()
+        {
+            try
+            {
+                buttonPlay.Enabled = true;
+                buttonStop.Enabled = false;
+
+                // First, stop incoming audio to avoid new work being enqueued
+                try
+                {
+                    if (audioIn != null)
+                    {
+                        audioIn.DataAvailable -= WaveIn_DataAvailable;
+                        try { audioIn.Stop(); } catch (Exception ex) { Debug.WriteLine($"Error stopping audioIn: {ex}"); }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error while disabling audioIn: {ex}");
+                }
+
+                // Pause output early so playback halts immediately
+                try { audioOut?.Pause(); } catch (Exception ex) { Debug.WriteLine($"Error pausing audioOut: {ex}"); }
+
+                // Cancel analysis and wait for task to finish (with timeout)
+                try
+                {
+                    analysisToken?.Cancel();
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error cancelling analysis token: {ex}");
+                }
+
+                if (analysisTask != null)
+                {
+                    try
+                    {
+                        if (!analysisTask.Wait(3000)) // wait up to 3s
+                        {
+                            Debug.WriteLine("Analysis task did not complete within timeout");
+                        }
+                    }
+                    catch (AggregateException aex)
+                    {
+                        Debug.WriteLine($"Analysis task aggregate exception: {aex.Flatten()}");
+                    }
+                    finally
+                    {
+                        analysisTask = null;
+                    }
+                }
+
+                analysisToken = null;
+
+                // Clear buffers safely
+                ringBuffer_waveIn = null;
+                ringBuffer_waveInIndex = 0;
+                ringBuffer_fft = null;
+                ringBuffer_fftIndex = 0;
+                while (audioQueue.TryDequeue(out _)) { }
+                while (analyzeQueue.TryDequeue(out _)) { }
+
+                // Dispose audio devices with guards
+                try { audioIn?.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Error disposing audioIn: {ex}"); }
+                audioIn = null;
+
+                try { audioOut?.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Error disposing audioOut: {ex}"); }
+                audioOut = null;
+
+                try { music?.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Error disposing music: {ex}"); }
+                music = null;
+
+                timerPlay.Stop();
+                timerUI.Stop();
+                stopwatch.Stop();
+
+                try { detector?.DisposeFFTWindow(); } catch (Exception ex) { Debug.WriteLine($"Error disposing detector FFT window: {ex}"); }
+
+                // ガイド削除
+                try { noteOverlayBitmap?.Dispose(); } catch (Exception ex) { Debug.WriteLine($"Error disposing bitmap: {ex}"); }
+                noteOverlayBitmap = null;
+                pageCache.Clear();
+
+                // 歌詞削除
+                labelLyrics.Text = "";
+
+                /* チャート初期化 */
+                Reset_chartInputWave(samplingInterval);
+                chartPitch.Series[0].Points.Clear();
+
+                chartPitch.Invalidate();
+
+                // 楽曲設定削除
+                currentPage = 0;
+                currentSong = null;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Unexpected error in StopPlayback: {ex}");
+            }
+        }
+
+        private void StopPlayback()
+        {
+            lock (playbackLock)
+            {
+                StopPlaybackInternal();
+            }
+        }
+
+        private void PageBackPlayback()
+        {
+            double playSec = currentSong.Pages[currentPage].StartSec;
+            music.CurrentTime = TimeSpan.FromSeconds(playSec);
+
+            trackBarMusic.Value = Math.Max(0, (int)(playSec - latency));
+
+            chartPitch.Series["Singing"].Points.Clear();
+            LoadPage(currentPage);
+            UpdateGuideOverlay();
+        }
+
+        private void PageForwardPlayback()
+        {
+            double playSec = currentSong.Pages[currentPage].StartSec;
+            music.CurrentTime = TimeSpan.FromSeconds(playSec);
+
+            trackBarMusic.Value = Math.Max(0, (int)(playSec - latency));
+
+            chartPitch.Series["Singing"].Points.Clear();
+            LoadPage(currentPage);
+            UpdateGuideOverlay();
+        }
+
         private void buttonDeSelect_Click(object sender, EventArgs e)
         {
             listBoxMusic.SelectedIndex = -1;
@@ -488,14 +730,7 @@ namespace Karaoke
             if ((currentSong != null) && (0 < currentPage))
             {
                 currentPage--;
-                double playSec = currentSong.Pages[currentPage].StartSec;
-                music.CurrentTime = TimeSpan.FromSeconds(playSec);
-
-                trackBarMusic.Value = (int)playSec;
-
-                chartPitch.Series["Singing"].Points.Clear();
-                LoadPage(currentPage);
-                UpdateGuideOverlay();
+                playbackController?.PageBack();
             }
         }
 
@@ -504,96 +739,21 @@ namespace Karaoke
             if ((currentSong != null) && (currentPage + 1 < currentSong.Pages.Count))
             {
                 currentPage++;
-                double playSec = currentSong.Pages[currentPage].StartSec;
-                music.CurrentTime = TimeSpan.FromSeconds(playSec);
-
-                trackBarMusic.Value = (int)playSec;
-
-                chartPitch.Series["Singing"].Points.Clear();
-                LoadPage(currentPage);
-                UpdateGuideOverlay();
+                playbackController?.PageForward();
             }
         }
 
         private CancellationTokenSource analysisToken;
+        private Task analysisTask;
 
         private void buttonPlay_Click(object sender, EventArgs e)
         {
-            buttonPlay.Enabled = false;
-            buttonStop.Enabled = true;
-
-            labelLyrics.Text = "（セットアップ中・・・）";
-            labelLyrics.Update();
-
-            /* 変数の設定 */
-            samplingRate = int.Parse(samprate.Text);
-            fftSize = int.Parse(fftSizeUpDown.Text);
-            measuresPerSec = (int)mps.Value;
-            minEnergy = (double)energyUpDown.Value;
-
-            detector = new PitchDetector(samplingRate, fftSize, measuresPerSec);
-            samplingInterval = samplingRate / measuresPerSec;
-            UpdatePhaseSec(CONST_PAGE_SEC);
-
-            ringBuffer_waveIn = new double[samplingInterval];
-            ringBuffer_waveInIndex = 0;
-
-            ringBuffer_fft = new double[samplingInterval * 4];
-            ringBuffer_fftIndex = 0;
-
-            /* チャートの再初期化 */
-            Reset_chartInputWave(samplingInterval);
-            chartPitch.Series[0].Points.Clear();
-
-            /* 入出力作成 */
-            CreateWasapiCapture();
-            CreateWasapiOut();
-
-            /* キャリブレーション */
-            latency = CalibrateLatency();
-            latencyUpDown.Value = (decimal)latency;
-
-            labelLyrics.Text = "";
-            labelLyrics.Update();
-
-            /* 本番用に設定 */
-            SetupWasapiCapture();
-            SetupWasapiOut();
-
-            analysisToken = new CancellationTokenSource();
-            Task.Run(() => AnalysisLoop(analysisToken.Token));
+            playbackController?.Play();
         }
 
         private void buttonStop_Click(object sender, EventArgs e)
         {
-            buttonPlay.Enabled = true;
-            buttonStop.Enabled = false;
-
-            analysisToken?.Cancel();
-            analysisToken = null;
-
-            ringBuffer_waveIn = null;
-            ringBuffer_waveInIndex = 0;
-            ringBuffer_fft = null;
-            ringBuffer_fftIndex = 0;
-            while (audioQueue.TryDequeue(out _)) { }
-            while (analyzeQueue.TryDequeue(out _)) { }
-
-            wasapiCapture?.StopRecording();
-            wasapiCapture?.Dispose();
-            wasapiCapture = null;
-
-            wasapiOut?.Pause();
-            wasapiOut?.Dispose();
-            wasapiOut = null;
-
-            music?.Dispose();
-            music = null;
-
-            timerPlay.Stop();
-            stopwatch.Stop();
-
-            detector.DisposeFFTWindow();
+            playbackController?.Stop();
         }
 
 
@@ -859,7 +1019,7 @@ namespace Karaoke
         // 再生時間の表示とトラックバーの制御
         private void timerPlay_Tick(object sender, EventArgs e)
         {
-            int ct = (int)(music.CurrentTime.TotalSeconds - latency);
+            int ct = Math.Max(0, (int)(music.CurrentTime.TotalSeconds - latency));
             if (ct > trackBarMusic.Maximum)
             {
                 timerPlay.Stop();
@@ -879,9 +1039,24 @@ namespace Karaoke
         ConcurrentQueue<PitchResult> pitchQueue = new ConcurrentQueue<PitchResult>();
 
         private double freq = 0.0;
+        // latency auto-adjust samples (UI thread only)
+        private readonly List<double> latencySamples = new List<double>();
+        private const int LATENCY_SAMPLE_WINDOW = 30; // keep last N estimates
+        private const double LATENCY_ALPHA = 0.25; // smoothing factor (not used for auto-apply by default)
+        // Suggested latency computed from samples but not automatically applied during playback
+        private double suggestedLatency = double.NaN;
+
 
         private void timerUI_Tick(object sender, EventArgs e)
         {
+            // Update settings snapshot from UI (UI thread)
+            settingsController.UpdateFromUI(samprate.Text, fftSizeUpDown.Text, (int)mps.Value, (double)energyUpDown.Value,
+                                            trackBarVolume.Value, comboBoxDeviceIn.SelectedItem, comboBoxDeviceOut.SelectedItem, latencyUpDown.Value, listBoxMusic.SelectedItem);
+
+            // Copy UI flags to atomic fields (UI thread)
+            useFourierFlag = isFourier.Checked;
+            useHPSFlag = isHPS.Checked;
+
             // 再生位置を基準に
             double currentSec = GetCurrentTime();
 
@@ -897,6 +1072,7 @@ namespace Karaoke
             while (pitchQueue.TryDequeue(out var p))
             {
                 AddPitch(p);
+                TryRecordLatencySample(p);
             }
 
             // 再生ラインの位置
@@ -987,100 +1163,67 @@ namespace Karaoke
             series.Points.AddXY(relTime, p.Pitch >= 0 ? hosei_pitch : double.NaN);
         }
 
+        // Try to record a latency sample from a detected pitch by comparing raw detection time to nearest guide note time
+        private void TryRecordLatencySample(PitchResult p)
+        {
+            try
+            {
+                if (p.Pitch < 0) return; // ignore invalid pitch
+                if (currentSong == null) return;
+
+                // Ensure page index is valid
+                if (currentPage < 0 || currentPage >= currentSong.Pages.Count) return;
+                var page = currentSong.Pages[currentPage];
+                if (page == null || page.Notes == null || page.Notes.Count == 0) return;
+
+                // Find nearest note by start time
+                double bestDiff = double.MaxValue;
+                dynamic bestNote = null;
+                foreach (var note in page.Notes)
+                {
+                    double diff = Math.Abs(p.RawTimeSec - note.StartSec);
+                    if (diff < bestDiff)
+                    {
+                        bestDiff = diff;
+                        bestNote = note;
+                    }
+                }
+
+                // Accept sample only if within reasonable time window
+                if (bestNote == null || bestDiff > 1.0) return; // ignore if too far
+
+                // Optionally check pitch closeness to note (in semitones)
+                if (Math.Abs(p.Pitch - bestNote.MidiNote) > 3.0) return; // not close enough
+
+                double sampleLatency = p.RawTimeSec - bestNote.StartSec; // positive if audio arrives later than guide
+
+                // Record sample (UI thread) — NOT automatically applied during playback
+                // to avoid playline jitter and to preserve performer rhythm visibility
+                latencySamples.Add(sampleLatency);
+                if (latencySamples.Count > LATENCY_SAMPLE_WINDOW)
+                    latencySamples.RemoveAt(0);
+
+                // Compute robust estimate: median (stored but not applied automatically)
+                var sorted = latencySamples.OrderBy(x => x).ToList();
+                suggestedLatency = sorted[sorted.Count / 2];
+                
+                // (Future: offer manual "Apply Calibration" button to apply suggestedLatency)
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error recording latency sample: {ex}");
+            }
+        }
+
         private double GetCurrentTime()
         {
             if (music != null)
-                return music.CurrentTime.TotalSeconds;
+                return music.CurrentTime.TotalSeconds - latency;
 
             return stopwatch.Elapsed.TotalSeconds;
         }
 
 
-        /*
-         ピッチ解析
-         */
-        class PitchResult
-        {
-            public double TimeSec;
-            public double Pitch;
-        }
 
-        // ピッチ解析用の別スレッド
-        private async Task AnalysisLoop(CancellationToken token)
-        {
-            while (!token.IsCancellationRequested)
-            {
-                if (audioQueue.TryDequeue(out var audio)) {
-                    // 波形整形
-                    double[] fixedWaveform = new double[samplingInterval];
-                    int copyLen = Math.Min(audio.Length, samplingInterval);
-                    Array.Copy(audio, fixedWaveform, copyLen);
-
-                    drawQueue.Enqueue(fixedWaveform);
-                }
-
-                if (analyzeQueue.TryDequeue(out var data))
-                {
-                    var pitch = DetectPitch(data);
-
-                    double timeSec = GetCurrentTime() - latency - (samplingInterval / (double)samplingRate / 2.0);
-                    // ピッチを時間付き情報にする
-                    pitchQueue.Enqueue(new PitchResult
-                    {
-                        TimeSec = timeSec,
-                        Pitch = pitch
-                    });
-                }
-                else
-                {
-                    await Task.Delay(5);
-                }
-            }
-        }
-
-
-        private double DetectPitch(double[] x)
-        {
-            // リングバッファでオーバーラップ
-            int length = Math.Min(x.Length, ringBuffer_fft.Length - ringBuffer_fftIndex);
-            Array.Copy(x, 0, ringBuffer_fft, ringBuffer_fftIndex, length);
-            if (length < x.Length)
-                Array.Copy(x, length, ringBuffer_fft, 0, x.Length - length);
-            ringBuffer_fftIndex = (ringBuffer_fftIndex + x.Length) % ringBuffer_fft.Length;
-
-            double energy = 0.0;
-            for (int i = 0; i < x.Length; i++)
-                energy += x[i] * x[i];
-
-            if (energy < minEnergy)
-                return -1;
-
-            double frequency = 0;
-            if (!isFourier.Checked)
-                frequency = detector.YIN(x);
-            else
-            {
-                if (isHPS.Checked)
-                    frequency = detector.FourierTransformWithHPS(ringBuffer_fft, ringBuffer_fftIndex);
-                    //frequency = detector.FourierTransformWithHPS(x, 0);
-                else
-                    frequency = detector.FourierTransform(ringBuffer_fft, ringBuffer_fftIndex);
-                    //frequency = detector.FourierTransform(x, 0);
-            }
-
-            // 競合しないようにロック
-            Interlocked.Exchange(ref freq, frequency);
-
-            // 無音判定。85Hz ~ 1000Hz を有効範囲とする。
-            if (frequency < 85 || frequency > VALID_MAX_FREQ)
-                return -1;
-
-            // ピッチへの変換
-            double midiNote = 69 + 12 * Math.Log(frequency / 440.0, 2);
-            return midiNote;
-
-            //double pitchClass = midiNote % 12;
-            //return pitchClass;
-        }
     }
 }
