@@ -96,11 +96,18 @@
     <Compile Include="AnalysisService.cs" />
     <Compile Include="AudioInputService.cs" />
     <Compile Include="AudioOutputService.cs" />
+    <Compile Include="ColorUtils.cs" />
     <Compile Include="Karaoke.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Karaoke.Designer.cs">
       <DependentUpon>Karaoke.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Karaoke_Prototype.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Karaoke_Prototype.Designer.cs">
+      <DependentUpon>Karaoke_Prototype.cs</DependentUpon>
     </Compile>
     <Compile Include="LatencyCalibrator.cs" />
     <Compile Include="NoteUtils.cs" />
@@ -112,6 +119,9 @@
     <Compile Include="SettingsController.cs" />
     <EmbeddedResource Include="Karaoke.resx">
       <DependentUpon>Karaoke.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Karaoke_Prototype.resx">
+      <DependentUpon>Karaoke_Prototype.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

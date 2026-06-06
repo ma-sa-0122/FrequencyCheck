@@ -16,7 +16,7 @@ namespace Karaoke
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Karaoke());
+            Application.Run(new Karaoke_Prototype());
         }
     }
 }

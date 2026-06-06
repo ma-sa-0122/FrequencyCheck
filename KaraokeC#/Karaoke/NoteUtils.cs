@@ -65,11 +65,19 @@ namespace Karaoke
         public string Color { get; set; }      // ノーツの色
     }
 
+    public class LyricsSpan
+    {
+        public string Text { get; set; }
+        public string ForeColor { get; set; } = "Black";
+        public float FontSize { get; set; } = 11;
+    }
+
     public class PageInfo
     {
         public double StartSec { get; set; }   // ページ開始秒
         public double EndSec { get; set; }     // ページ終了秒
-        public string lyrics { get; set; }     // 歌詞
+        public string lyrics { get; set; }     // 歌詞（旧形式）
+        public List<LyricsSpan> lyricsData { get; set; }   // 歌詞（新形式）
         public List<NoteEvent> Notes { get; set; } = new List<NoteEvent>();
     }
 

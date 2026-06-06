@@ -107,3 +107,4 @@ C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\Newtonsoft
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\Newtonsoft.Json.xml
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\System.Buffers.dll
 C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\bin\Debug\System.Buffers.xml
+C:\Users\yukku\Desktop\Programs\C\Karaoke\KaraokeC#\Karaoke\obj\Debug\Karaoke.Karaoke_Prototype.resources

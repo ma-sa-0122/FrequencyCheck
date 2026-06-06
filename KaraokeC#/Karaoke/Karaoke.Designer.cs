@@ -517,6 +517,7 @@
             this.Controls.Add(this.chartPitch);
             this.Controls.Add(this.chartInputWave);
             this.Controls.Add(this.trackBarVolume);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.KeyPreview = true;
             this.MaximizeBox = false;
             this.Name = "Karaoke";
